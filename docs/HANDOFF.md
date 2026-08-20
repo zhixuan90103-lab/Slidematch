@@ -2,7 +2,7 @@
 
 仓库：`/Users/wangzhixuan/Documents/Threejs_Work/Slidematch`  
 远程：`git@github.com:zhixuan90103-lab/Slidematch.git` · `main` · `d014c4c`  
-第一入口：[AGENTS.md](../AGENTS.md) · 玩法：[DESIGN.md](./DESIGN.md) · 盘面：[BOARD.md](./BOARD.md)
+第一入口：[SPEC.md](./SPEC.md) · [AGENTS.md](../AGENTS.md) · 玩法：[DESIGN.md](./DESIGN.md) · 手感：[OPERATION.md](./OPERATION.md)
 
 ## 一句话
 
@@ -25,7 +25,7 @@ npm run dev          # 默认 5190，strictPort，被占会失败
 - 八向、可拐、≥3、**仅抬手结算**；滑动中不消、不触发道具  
 - 道具档：6–7 / 8–9 / ≥10 → 1/2/3 级；当次不用；未定点（占格、变哪色、爆炸形状）先别做  
 - 下落：全局重力、格子 `current`+`incoming`、下方空才掉、0.22 释放。见 [DROP.md](./DROP.md)  
-- 路径输入只借 SlidetoWord **第一指 / rect / cancel 续划**，不借射线。见 [SWIPE.md](./SWIPE.md)
+- 路径输入只借 SlidetoWord **第一指 / rect / cancel 续划**，不借射线。手感见 [OPERATION.md](./OPERATION.md)
 
 ## 视觉 vs 逻辑（实现时别搅在一起）
 
@@ -55,14 +55,14 @@ src/main.ts              启动：锁手势、透明 renderer、mountBoard
 src/game/config.ts       行列、框切片、棋子 import
 src/game/settings.ts     视觉默认 / computeLayout
 src/game/board.ts        点中、初盘保证 ≥3 八向连通
-src/game/path.ts         加格/减格（见 SWIPE.md）
+src/game/path.ts         加格/减格（见 OPERATION.md）
 src/game/input.ts        第一指、cancel 续划
 src/game/mount.ts        DOM + 路径接线 + 隐藏 tune
 src/create-renderer.ts   WebGPU，canvas pointer-events:none
 src/adapt/*              design / preview / safeArea / lockGestures
 ```
 
-下一刀：阶段 C 抬手消 + 占坑下落。路径规则以 [SWIPE.md](./SWIPE.md) 为准。
+下一刀：阶段 C 抬手消 + 占坑下落。操作手感以 [OPERATION.md](./OPERATION.md) 为准。
 
 ## 硬性（AGENTS）
 
@@ -76,8 +76,8 @@ src/adapt/*              design / preview / safeArea / lockGestures
 
 ## 未定点（别擅自填进盘面逻辑）
 
-道具占格 · 1 级变哪色 · 爆炸形状 · 分数字。路径死区/出盘/X 见 [SWIPE.md](./SWIPE.md)。
+道具占格 · 1 级变哪色 · 爆炸形状 · 分数字。对角 X 交叉仍允许（OPERATION）。
 
 ## 新窗口第一句建议
 
-「继续 SlideMatch。先读 `docs/HANDOFF.md` 和 `SWIPE.md`。阶段 B 滑动已做，做阶段 C：抬手消 + 下落。」
+「继续 SlideMatch。先读 `docs/SPEC.md` 和 `OPERATION.md`。阶段 B 滑动已做，做阶段 C：抬手消 + 下落。」

@@ -154,7 +154,7 @@ export function stepPath(
     if (add) {
       occupied.add(cellKey(add));
       cells.push(add);
-      continue;
+      break;
     }
     if (prev) {
       const prevPt = cellCenter(prev, 0, 0, layout);
@@ -201,9 +201,19 @@ export function lastStep(path: PathState): Cell | null {
   return { row: b.row - a.row, col: b.col - a.col };
 }
 
+function viaElbow(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  mid: { x: number; y: number },
+  stepPx: number,
+): { x: number; y: number }[] {
+  if (Math.hypot(to.x - mid.x, to.y - mid.y) <= stepPx) return pointsAlong(from, to, stepPx);
+  return [...pointsAlong(from, mid, stepPx), ...pointsAlong(mid, to, stepPx)];
+}
+
 /**
- * 有来时方向且手指还在往前：先沿该方向走到投影点，再拐到手指。
- * 避免田字格直角快划被直线插值抄成对角线，把拐角格退掉。
+ * 两轴都跳过 stepPx：走折线，禁止对角线弦（快划直角拐角会被吃掉）。
+ * 有 aim：先沿来时方向；无 aim：|Δx|≥|Δy| 先横后竖。
  */
 export function pointsAlongAimed(
   from: { x: number; y: number },
@@ -212,20 +222,36 @@ export function pointsAlongAimed(
   layout: BoardLayout,
   stepPx: number,
 ): { x: number; y: number }[] {
-  if (!aim || (aim.row === 0 && aim.col === 0)) return pointsAlong(from, to, stepPx);
-  const sx = layout.cellW + layout.spacing;
-  const sy = layout.cellH + layout.spacing;
-  const ax = aim.col * sx;
-  const ay = aim.row * sy;
-  const alen = Math.hypot(ax, ay);
-  if (alen < 1e-6) return pointsAlong(from, to, stepPx);
-  const ux = ax / alen;
-  const uy = ay / alen;
-  const along = (to.x - from.x) * ux + (to.y - from.y) * uy;
-  if (along <= stepPx) return pointsAlong(from, to, stepPx);
-  const mid = { x: from.x + ux * along, y: from.y + uy * along };
-  if (Math.hypot(to.x - mid.x, to.y - mid.y) <= stepPx) return pointsAlong(from, to, stepPx);
-  return [...pointsAlong(from, mid, stepPx), ...pointsAlong(mid, to, stepPx)];
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const twoAxis = Math.abs(dx) > stepPx && Math.abs(dy) > stepPx;
+
+  if (aim && (aim.row !== 0 || aim.col !== 0)) {
+    const sx = layout.cellW + layout.spacing;
+    const sy = layout.cellH + layout.spacing;
+    const ax = aim.col * sx;
+    const ay = aim.row * sy;
+    const alen = Math.hypot(ax, ay);
+    if (alen >= 1e-6) {
+      const ux = ax / alen;
+      const uy = ay / alen;
+      const along = dx * ux + dy * uy;
+      if (along > stepPx) {
+        const mid = { x: from.x + ux * along, y: from.y + uy * along };
+        return viaElbow(from, to, mid, stepPx);
+      }
+    }
+  }
+
+  if (twoAxis) {
+    const mid =
+      Math.abs(dx) >= Math.abs(dy)
+        ? { x: to.x, y: from.y }
+        : { x: from.x, y: to.y };
+    return viaElbow(from, to, mid, stepPx);
+  }
+
+  return pointsAlong(from, to, stepPx);
 }
 
 export function stepPathAlong(

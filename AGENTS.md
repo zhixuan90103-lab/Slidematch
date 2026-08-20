@@ -5,16 +5,18 @@
 ## 一句话
 
 **TypeScript + Three.js WebGPU + Vite + Capacitor iOS**，设计空间 **390×844** contain letterbox。  
-玩法：9×9 滑动连同色，抬手消除。规范见 `docs/DESIGN.md`。
+玩法：9×9 滑动连同色，抬手消除。规范地图：[docs/SPEC.md](./docs/SPEC.md)。玩法 [DESIGN.md](./docs/DESIGN.md)；手感 [OPERATION.md](./docs/OPERATION.md)。
 
 ## 文档
 
 | 文件 | 内容 |
 |------|------|
+| [docs/SPEC.md](./docs/SPEC.md) | 规范地图（先读） |
 | [docs/HANDOFF.md](./docs/HANDOFF.md) | 窗口交接 |
-| [docs/DESIGN.md](./docs/DESIGN.md) | 玩法（第一真源） |
+| [docs/DESIGN.md](./docs/DESIGN.md) | 玩法 |
 | [docs/BOARD.md](./docs/BOARD.md) | 逻辑 9×9 / 视觉框 / 素材 |
-| [docs/SWIPE.md](./docs/SWIPE.md) | 可拐弯路径（不抄射线） |
+| [docs/SWIPE.md](./docs/SWIPE.md) | 可拐弯路径（摘要） |
+| [docs/OPERATION.md](./docs/OPERATION.md) | 操作手感（实现真源） |
 | [docs/SWIPE-RESEARCH.md](./docs/SWIPE-RESEARCH.md) | 滑动检索备忘（不覆盖规则） |
 | [docs/DROP.md](./docs/DROP.md) | 格子占坑、重力 |
 | [docs/PLAN.md](./docs/PLAN.md) | 阶段 A–F |
@@ -62,7 +64,7 @@
 6. **Pad 只改外层视口**，不改 `DESIGN_*`  
 7. 改 Swift 改 `plugins/native-haptics/` 再 `ios:bootstrap`；不要用 JS `prepare()` 判断是否接上  
 8. **无 WebGPU 则明确失败**，不静默 WebGL  
-9. 盘内点中用棋盘 **DOM rect**；追加路径用尾格心→八向  
+9. 盘内点中用浅格 **DOM rect**；追加路径见 [OPERATION.md](./docs/OPERATION.md)（尾格心→八向，禁止全盘最近格）  
 
 ## 命令
 
