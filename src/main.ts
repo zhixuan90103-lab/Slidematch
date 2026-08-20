@@ -1,5 +1,5 @@
 /**
- * Boot adapt shell, then 9×9 board + swipe path (phase B).
+ * Boot adapt shell, then 9×9 board + swipe + clear/drop (phase C).
  * Keep: adapt/*, create-renderer, DOM contract.
  */
 

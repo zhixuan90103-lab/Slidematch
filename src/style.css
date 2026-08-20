@@ -182,6 +182,7 @@ body.native-app #shell {
   z-index: 2;
   pointer-events: auto;
   touch-action: none;
+  overflow: hidden;
 }
 
 .board-pad {
@@ -201,6 +202,21 @@ body.native-app #shell {
 .board-cells {
   position: absolute;
   display: grid;
+  pointer-events: none;
+}
+
+/* 内框窗口：棋子只在大盘内显示，框外/顶补裁掉。 */
+.board-mask {
+  position: absolute;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.board-movers {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
 }
 
 .board-cell {
@@ -228,7 +244,7 @@ body.native-app #shell {
 }
 
 .board-piece {
-  position: relative;
+  position: absolute;
   z-index: 1;
   width: var(--piece-size, 38px);
   height: var(--piece-size, 38px);
@@ -236,6 +252,11 @@ body.native-app #shell {
   color-scheme: light;
   pointer-events: none;
   user-select: none;
+  transform-origin: 50% 100%;
+}
+
+.board-piece.is-clearing {
+  z-index: 2;
 }
 
 #tune-panel {
@@ -285,17 +306,17 @@ body.native-app #shell {
   font-size: 11px;
 }
 
-.board-cell.is-hit .board-piece,
-.board-cell.is-path .board-piece {
+.board-cell.is-hit,
+.board-cell.is-path {
   outline: 2px solid #fff;
-  outline-offset: 1px;
+  outline-offset: -1px;
 }
 
-.board-cell.is-path-tail .board-piece {
+.board-cell.is-path-tail {
   outline-width: 3px;
 }
 
-.board-cell.is-path-ok .board-piece {
+.board-cell.is-path-ok {
   outline-color: #3d9a4a;
 }
 

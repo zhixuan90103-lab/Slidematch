@@ -6,7 +6,7 @@
 |------|------|------|
 | A | 9×9 静盘 + 烘焙美术 + 视觉/逻辑分离 | **已做** |
 | B | 可拐弯划、回退、&lt;3 取消 | **几何已做**（未消子） |
-| C | 抬手消、占坑下落、顶补、整盘锁 | 未做 |
+| C | 抬手消、占坑下落、顶补、整盘锁 | **已做**（TripleMatch 重力） |
 | D | 长度 6/8/10 档视+震，封顶 | 未做 |
 | E | 道具 | 未定点 |
 | F | 分数公式 | 未定点 |
@@ -28,7 +28,7 @@ src/game/mount.ts      DOM + 隐藏的 tune
 src/assets/            见 BOARD.md
 ```
 
-阶段 B 路径：`src/game/path.ts` + `input.ts`，规范 [SWIPE.md](./SWIPE.md)。下一刀阶段 C：抬手消 + 下落。
+阶段 B 路径：`src/game/path.ts` + `input.ts`。阶段 C：`src/game/drop.ts` + `mount.ts` 抬手消、占坑、顶补。下一刀阶段 D：6/8/10 档视+震。
 
 ## 禁止
 

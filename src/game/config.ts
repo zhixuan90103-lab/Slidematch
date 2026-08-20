@@ -21,6 +21,8 @@ export const BOARD_TOP = (844 - BOARD_HEIGHT) / 2 + 13;
 export const FRAME_SLICE = 40;
 /** 舞台上框的显示厚度（设计像素）。左右各一圈，需 ≤ BOARD_LEFT（10.5）。 */
 export const FRAME_WIDTH = 10;
+/** 棋子 Mask 相对内框每边再放出的设计像素。 */
+export const BOARD_MASK_EXPAND = 6;
 
 export const HIT_RADIUS = CELL_SIZE * 0.8;
 
