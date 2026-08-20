@@ -11,9 +11,11 @@
 
 | 文件 | 内容 |
 |------|------|
+| [docs/HANDOFF.md](./docs/HANDOFF.md) | 窗口交接 |
 | [docs/DESIGN.md](./docs/DESIGN.md) | 玩法（第一真源） |
 | [docs/BOARD.md](./docs/BOARD.md) | 逻辑 9×9 / 视觉框 / 素材 |
 | [docs/SWIPE.md](./docs/SWIPE.md) | 可拐弯路径（不抄射线） |
+| [docs/SWIPE-RESEARCH.md](./docs/SWIPE-RESEARCH.md) | 滑动检索备忘（不覆盖规则） |
 | [docs/DROP.md](./docs/DROP.md) | 格子占坑、重力 |
 | [docs/PLAN.md](./docs/PLAN.md) | 阶段 A–F |
 | [docs/SOURCES.md](./docs/SOURCES.md) | 对照工程与权威顺序 |

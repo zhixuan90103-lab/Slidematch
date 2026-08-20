@@ -6,8 +6,8 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * - base './' on Vite → relative assets for offline WebView
  */
 const config: CapacitorConfig = {
-  appId: 'com.example.portraitwebgpubase',
-  appName: 'Portrait WebGPU Base',
+  appId: 'com.slidematch.phaseb',
+  appName: 'SlideMatch B',
   webDir: 'dist',
   server: {
     androidScheme: 'https',

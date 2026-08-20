@@ -10,6 +10,7 @@ https://notebooklm.google.com/notebook/01c159a3-b263-45ab-ae06-564996aacb77
 3. 盘面数字、占坑、重力：TripleMatch 代码（`GameSettings`，不用 Config 的 42）  
 4. 指针 / DOM 盘 / rect：SlidetoWord `portrait-webgpu-base/src/game/mount.ts`  
 5. 射线 path、三消匹配、刚体物理：不听  
+6. 滑动检索：[SWIPE-RESEARCH.md](./SWIPE-RESEARCH.md)（不覆盖 SWIPE 规则）  
 
 ## 对照路径
 

@@ -285,9 +285,18 @@ body.native-app #shell {
   font-size: 11px;
 }
 
-.board-cell.is-hit .board-piece {
+.board-cell.is-hit .board-piece,
+.board-cell.is-path .board-piece {
   outline: 2px solid #fff;
   outline-offset: 1px;
+}
+
+.board-cell.is-path-tail .board-piece {
+  outline-width: 3px;
+}
+
+.board-cell.is-path-ok .board-piece {
+  outline-color: #3d9a4a;
 }
 
 header {

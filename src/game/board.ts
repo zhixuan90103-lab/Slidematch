@@ -3,7 +3,7 @@ import type { BoardLayout } from './settings';
 
 export type Cell = { row: number; col: number };
 
-const NEIGHBOR8: Cell[] = [];
+export const NEIGHBOR8: Cell[] = [];
 for (let dr = -1; dr <= 1; dr++) {
   for (let dc = -1; dc <= 1; dc++) {
     if (dr === 0 && dc === 0) continue;
