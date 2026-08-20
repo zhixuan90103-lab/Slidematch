@@ -5,8 +5,9 @@ import { bindSwipeInput } from './input';
 import {
   beginPath,
   canCommit,
+  lastStep,
   PATH_TRACE_STEP,
-  pointsAlong,
+  pointsAlongAimed,
   stepPathAlong,
   type PathState,
 } from './path';
@@ -159,7 +160,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     }
 
     const stepPx = PATH_TRACE_STEP * Math.min(layout.cellW, layout.cellH);
-    const pts = lastLocal ? pointsAlong(lastLocal, loc, stepPx) : [loc];
+    const aim = path ? lastStep(path) : null;
+    const pts = lastLocal ? pointsAlongAimed(lastLocal, loc, aim, layout, stepPx) : [loc];
     lastLocal = loc;
     for (const pt of pts) feedLocal(pt);
 

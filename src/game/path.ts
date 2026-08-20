@@ -194,6 +194,40 @@ export function pointsAlong(
   return out;
 }
 
+export function lastStep(path: PathState): Cell | null {
+  if (path.cells.length < 2) return null;
+  const a = path.cells[path.cells.length - 2]!;
+  const b = path.cells[path.cells.length - 1]!;
+  return { row: b.row - a.row, col: b.col - a.col };
+}
+
+/**
+ * 有来时方向且手指还在往前：先沿该方向走到投影点，再拐到手指。
+ * 避免田字格直角快划被直线插值抄成对角线，把拐角格退掉。
+ */
+export function pointsAlongAimed(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  aim: Cell | null,
+  layout: BoardLayout,
+  stepPx: number,
+): { x: number; y: number }[] {
+  if (!aim || (aim.row === 0 && aim.col === 0)) return pointsAlong(from, to, stepPx);
+  const sx = layout.cellW + layout.spacing;
+  const sy = layout.cellH + layout.spacing;
+  const ax = aim.col * sx;
+  const ay = aim.row * sy;
+  const alen = Math.hypot(ax, ay);
+  if (alen < 1e-6) return pointsAlong(from, to, stepPx);
+  const ux = ax / alen;
+  const uy = ay / alen;
+  const along = (to.x - from.x) * ux + (to.y - from.y) * uy;
+  if (along <= stepPx) return pointsAlong(from, to, stepPx);
+  const mid = { x: from.x + ux * along, y: from.y + uy * along };
+  if (Math.hypot(to.x - mid.x, to.y - mid.y) <= stepPx) return pointsAlong(from, to, stepPx);
+  return [...pointsAlong(from, mid, stepPx), ...pointsAlong(mid, to, stepPx)];
+}
+
 export function stepPathAlong(
   path: PathState,
   points: { x: number; y: number }[],
