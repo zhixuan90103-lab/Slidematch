@@ -18,7 +18,7 @@ import {
   lastStep,
   PATH_TRACE_STEP,
   pointsAlongAimed,
-  stepPathAlong,
+  stepPathCrossing,
   type PathState,
 } from './path';
 import {
@@ -199,13 +199,10 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   };
 
   const feedLocal = (loc: { x: number; y: number }) => {
-    if (!path) {
-      if (boardBusy(sim)) return;
-      const hit = cellFromLocal(loc.x, loc.y, layout);
-      if (hit && colors[hit.row]![hit.col]! >= 0) path = beginPath(hit, colors);
-      return;
-    }
-    path = stepPathAlong(path, [loc], layout, colors);
+    if (path) return;
+    if (boardBusy(sim)) return;
+    const hit = cellFromLocal(loc.x, loc.y, layout);
+    if (hit && colors[hit.row]![hit.col]! >= 0) path = beginPath(hit, colors);
   };
 
   const onSample = (clientX: number, clientY: number, kind: 'down' | 'move' | 'up') => {
@@ -230,9 +227,19 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
 
     const stepPx = PATH_TRACE_STEP * Math.min(layout.cellW, layout.cellH);
     const aim = path ? lastStep(path) : null;
-    const pts = lastLocal ? pointsAlongAimed(lastLocal, loc, aim, layout, stepPx) : [loc];
+    const from = lastLocal;
+    const pts = from ? pointsAlongAimed(from, loc, aim, layout, stepPx) : [loc];
     lastLocal = loc;
-    for (const pt of pts) feedLocal(pt);
+
+    if (!path) {
+      for (const pt of pts) feedLocal(pt);
+    } else {
+      let a = from ?? pts[0]!;
+      for (const pt of pts) {
+        path = stepPathCrossing(path, a, pt, layout, colors);
+        a = pt;
+      }
+    }
 
     if (kind === 'up') {
       finishStroke();

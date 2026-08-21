@@ -1,4 +1,4 @@
-import { cellCenter, inBounds, type Cell } from './board';
+import { cellCenter, inBounds, NEIGHBOR8, type Cell } from './board';
 import { COLS, ROWS } from './config';
 import type { BoardLayout } from './settings';
 
@@ -16,6 +16,8 @@ export const PATH_NEAR_STEP = 1.2;
 export const PATH_STICK_DEG = 30;
 /** 两次采样之间的插值步长（格宽倍数），补快划漏格。 */
 export const PATH_TRACE_STEP = 0.4;
+/** 线段与邻格圆盘相交才点名加格；半径 = 该步格心距 × 此值。0.6 小于对角到横竖心的 0.707。短段不扫盘。 */
+export const PATH_CROSS_R = 0.6;
 export const PATH_MIN = 3;
 
 export type PathState = {
@@ -63,9 +65,9 @@ function nearTarget(finger: Pt, target: Pt, from: Pt): boolean {
 }
 
 function wrapPi(a: number): number {
-  while (a > Math.PI) a -= Math.PI * 2;
-  while (a < -Math.PI) a += Math.PI * 2;
-  return a;
+  const t = a + Math.PI;
+  const two = Math.PI * 2;
+  return ((((t % two) + two) % two) - Math.PI);
 }
 
 function octantStep(dx: number, dy: number): Cell {
@@ -185,7 +187,7 @@ export function pointsAlong(
   const dist = Math.hypot(dx, dy);
   if (dist < 1e-6) return [{ x: to.x, y: to.y }];
   const step = Math.max(stepPx, 1);
-  const n = Math.max(1, Math.ceil(dist / step));
+  const n = Math.min(64, Math.max(1, Math.ceil(dist / step)));
   const out: { x: number; y: number }[] = [];
   for (let i = 1; i <= n; i++) {
     const t = i / n;
@@ -252,6 +254,103 @@ export function pointsAlongAimed(
   }
 
   return pointsAlong(from, to, stepPx);
+}
+
+function closestOnSegment(
+  from: Pt,
+  to: Pt,
+  p: Pt,
+): { t: number; q: Pt; d: number } {
+  const vx = to.x - from.x;
+  const vy = to.y - from.y;
+  const len2 = vx * vx + vy * vy;
+  if (len2 < 1e-12) {
+    return { t: 0, q: { x: from.x, y: from.y }, d: Math.hypot(p.x - from.x, p.y - from.y) };
+  }
+  const t = Math.max(0, Math.min(1, ((p.x - from.x) * vx + (p.y - from.y) * vy) / len2));
+  const q: Pt = { x: from.x + vx * t, y: from.y + vy * t };
+  return { t, q, d: Math.hypot(p.x - q.x, p.y - q.y) };
+}
+
+function appendNeighbor(
+  path: PathState,
+  next: Cell,
+  colors: number[][],
+): PathState | null {
+  const tail = path.cells[path.cells.length - 1];
+  if (!tail) return null;
+  const prev = path.cells.length >= 2 ? path.cells[path.cells.length - 2]! : null;
+  if (prev && sameCell(next, prev)) return null;
+  if (!inBounds(next)) return null;
+  if (path.cells.some((c) => sameCell(c, next))) return null;
+  if (colors[next.row]![next.col] !== path.color) return null;
+  const cells = path.cells.map((c) => ({ row: c.row, col: c.col }));
+  cells.push({ row: next.row, col: next.col });
+  return { cells, color: path.color };
+}
+
+function crossingHits(
+  path: PathState,
+  from: Pt,
+  to: Pt,
+  layout: BoardLayout,
+  colors: number[][],
+): { t: number; cell: Cell }[] {
+  const tail = path.cells[path.cells.length - 1];
+  if (!tail) return [];
+  const prev = path.cells.length >= 2 ? path.cells[path.cells.length - 2]! : null;
+  const occupied = new Set(path.cells.map(cellKey));
+  const tailPt = cellCenter(tail, 0, 0, layout);
+  const hits: { t: number; cell: Cell }[] = [];
+  for (const d of NEIGHBOR8) {
+    const next: Cell = { row: tail.row + d.row, col: tail.col + d.col };
+    if (prev && sameCell(next, prev)) continue;
+    if (!inBounds(next) || occupied.has(cellKey(next))) continue;
+    if (colors[next.row]![next.col] !== path.color) continue;
+    const nc = cellCenter(next, 0, 0, layout);
+    const span = Math.hypot(nc.x - tailPt.x, nc.y - tailPt.y);
+    if (span < 1e-6) continue;
+    const hit = closestOnSegment(from, to, nc);
+    if (hit.d > PATH_CROSS_R * span) continue;
+    hits.push({ t: hit.t, cell: next });
+  }
+  hits.sort((a, b) => a.t - b.t);
+  return hits;
+}
+
+/**
+ * 一段线只「点名」碰到的邻居并 append，禁止把圆盘点再丢进 stepPath（会加/减咬死）。
+ * 短段（按下微动）不扫圆盘。t 必须前进。对角弦 r=0.6 碰不到横竖心。
+ */
+export function stepPathCrossing(
+  path: PathState,
+  from: Pt,
+  to: Pt,
+  layout: BoardLayout,
+  colors: number[][],
+): PathState {
+  const unit = Math.min(layout.cellW, layout.cellH);
+  if (Math.hypot(to.x - from.x, to.y - from.y) < PATH_DEADZONE * unit) {
+    return stepPath(path, to.x, to.y, layout, colors);
+  }
+
+  let next = path;
+  let tFloor = -1;
+  for (let k = 0; k < 8; k++) {
+    const hits = crossingHits(next, from, to, layout, colors);
+    let grew = false;
+    for (const h of hits) {
+      if (h.t <= tFloor + 1e-4) continue;
+      const added = appendNeighbor(next, h.cell, colors);
+      if (!added) continue;
+      next = added;
+      tFloor = h.t;
+      grew = true;
+      break;
+    }
+    if (!grew) break;
+  }
+  return stepPath(next, to.x, to.y, layout, colors);
 }
 
 export function stepPathAlong(
