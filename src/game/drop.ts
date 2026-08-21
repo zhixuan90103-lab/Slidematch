@@ -60,43 +60,102 @@ export type DropSim = {
   slots: Slot[][];
   pieces: Map<number, Piece>;
   time: number;
+  dropSpeed: number;
 };
 
 export type DropMetrics = {
   stride: number;
   pieceH: number;
+  dropSpeed?: number;
 };
 
+function dropG(sim: DropSim): number {
+  return DROP_G * sim.dropSpeed;
+}
+function dropV0(sim: DropSim): number {
+  return DROP_V0 * sim.dropSpeed;
+}
+function dropVSpawn(sim: DropSim): number {
+  return DROP_V_SPAWN * sim.dropSpeed;
+}
+function dropVMax(sim: DropSim): number {
+  return DROP_V_MAX * sim.dropSpeed;
+}
+
 let nextId = 1;
+const piecePool: Piece[] = [];
+const droppingBuf: Piece[] = [];
+const belowBuf: Piece[] = [];
+const recycleBuf: Piece[] = [];
 
 function makeSlot(): Slot {
   return { current: null, incoming: null };
 }
 
+function fillPiece(p: Piece, color: number, col: number, row: number): Piece {
+  p.color = color;
+  p.col = col;
+  p.visualY = row;
+  p.sourceRow = row;
+  p.destRow = null;
+  p.state = 'stable';
+  p.clearT = 0;
+  p.vy = 0;
+  p.dropStartY = row;
+  p.landSpeed = 0;
+  p.landingTime = -1;
+  p.landT = 0;
+  p.landActive = false;
+  p.landSquash = 0;
+  p.landMove = 0;
+  p.landOvershoot = 0;
+  p.landOvershootScale = 0;
+  p.scaleX = 1;
+  p.scaleY = 1;
+  p.offsetY = 0;
+  return p;
+}
+
 function makePiece(color: number, col: number, row: number): Piece {
-  return {
-    id: nextId++,
+  return fillPiece(
+    {
+      id: nextId++,
+      color,
+      state: 'stable',
+      col,
+      visualY: row,
+      sourceRow: row,
+      destRow: null,
+      clearT: 0,
+      vy: 0,
+      dropStartY: row,
+      landSpeed: 0,
+      landingTime: -1,
+      landT: 0,
+      landActive: false,
+      landSquash: 0,
+      landMove: 0,
+      landOvershoot: 0,
+      landOvershootScale: 0,
+      scaleX: 1,
+      scaleY: 1,
+      offsetY: 0,
+    },
     color,
     col,
-    visualY: row,
-    sourceRow: row,
-    destRow: null,
-    state: 'stable',
-    clearT: 0,
-    vy: 0,
-    dropStartY: row,
-    landSpeed: 0,
-    landingTime: -1,
-    landT: 0,
-    landActive: false,
-    landSquash: 0,
-    landMove: 0,
-    landOvershoot: 0,
-    landOvershootScale: 0,
-    scaleX: 1,
-    scaleY: 1,
-    offsetY: 0,
-  };
+    row,
+  );
+}
+
+function acquirePiece(color: number, col: number, row: number): Piece {
+  const pooled = piecePool.pop();
+  if (pooled) return fillPiece(pooled, color, col, row);
+  return makePiece(color, col, row);
+}
+
+function recyclePiece(sim: DropSim, piece: Piece): void {
+  sim.pieces.delete(piece.id);
+  piecePool.push(piece);
 }
 
 export function createDropSim(colors: number[][]): DropSim {
@@ -109,7 +168,7 @@ export function createDropSim(colors: number[][]): DropSim {
       slots[row]![col]!.current = piece;
     }
   }
-  return { slots, pieces, time: 0 };
+  return { slots, pieces, time: 0, dropSpeed: 1 };
 }
 
 export function canReceiveDrop(sim: DropSim, row: number, col: number): boolean {
@@ -127,6 +186,22 @@ export function stableColors(sim: DropSim): number[][] {
       return p && p.state === 'stable' ? p.color : -1;
     }),
   );
+}
+
+/** 仅静止子可划；下落 / 消除 / 生成中的子不算。 */
+export function isCellStable(sim: DropSim, row: number, col: number, color?: number): boolean {
+  const p = sim.slots[row]?.[col]?.current;
+  if (!p || p.state !== 'stable') return false;
+  if (color !== undefined && p.color !== color) return false;
+  return true;
+}
+
+export function stablePathCount(sim: DropSim, cells: { row: number; col: number }[], color: number): number {
+  let n = 0;
+  for (const c of cells) {
+    if (isCellStable(sim, c.row, c.col, color)) n += 1;
+  }
+  return n;
 }
 
 export function boardBusy(sim: DropSim): boolean {
@@ -187,8 +262,8 @@ function beginDrop(sim: DropSim, piece: Piece, fromRow: number): boolean {
   }
   cancelLanding(piece);
   const inherit =
-    sim.time - piece.landingTime < DROP_MOMENTUM && piece.landSpeed > DROP_V0;
-  piece.vy = inherit ? piece.landSpeed : fromRow < 0 ? DROP_V_SPAWN : DROP_V0;
+    sim.time - piece.landingTime < DROP_MOMENTUM && piece.landSpeed > dropV0(sim);
+  piece.vy = inherit ? piece.landSpeed : fromRow < 0 ? dropVSpawn(sim) : dropV0(sim);
   piece.state = fromRow < 0 ? 'spawning' : 'dropping';
   piece.sourceRow = fromRow;
   return true;
@@ -197,9 +272,9 @@ function beginDrop(sim: DropSim, piece: Piece, fromRow: number): boolean {
 function trySpawn(sim: DropSim): void {
   for (let col = 0; col < COLS; col++) {
     if (!canReceiveDrop(sim, 0, col)) continue;
-    const piece = makePiece(Math.floor(Math.random() * COLOR_COUNT), col, -1);
+    const piece = acquirePiece(Math.floor(Math.random() * COLOR_COUNT), col, -1);
     piece.state = 'spawning';
-    piece.vy = DROP_V_SPAWN;
+    piece.vy = dropVSpawn(sim);
     sim.pieces.set(piece.id, piece);
     beginDrop(sim, piece, -1);
   }
@@ -218,7 +293,7 @@ function scanStarts(sim: DropSim): void {
 }
 
 function applyDropDeform(piece: Piece): void {
-  const ratio = Math.min(1, piece.vy / DROP_V_MAX);
+  const ratio = Math.min(1, piece.vy / DROP_V_MAX); // deform vs base cap; speed scale applied in integrate
   piece.scaleX = 1 - DROP_SQUASH_MAX * ratio;
   piece.scaleY = 1 + DROP_STRETCH_MAX * ratio;
   piece.offsetY = 0;
@@ -316,18 +391,15 @@ function finishHop(sim: DropSim, piece: Piece, metrics: DropMetrics): void {
 }
 
 function piecesBelow(sim: DropSim, piece: Piece): Piece[] {
-  const out: Piece[] = [];
-  const seen = new Set<number>();
+  belowBuf.length = 0;
   for (const other of sim.pieces.values()) {
     if (other === piece || other.col !== piece.col) continue;
     if (other.state === 'clearing') continue;
     if (other.visualY <= piece.visualY + 1e-6) continue;
-    if (seen.has(other.id)) continue;
-    seen.add(other.id);
-    out.push(other);
+    belowBuf.push(other);
   }
-  out.sort((a, b) => a.visualY - b.visualY);
-  return out;
+  belowBuf.sort((a, b) => a.visualY - b.visualY);
+  return belowBuf;
 }
 
 function integrate(sim: DropSim, dt: number, metrics: DropMetrics): void {
@@ -335,15 +407,15 @@ function integrate(sim: DropSim, dt: number, metrics: DropMetrics): void {
   const snapRows = stride > 1e-6 ? DROP_SNAP_PX / stride : 0.05;
   const softPx = stride * DROP_SOFT_GAP;
 
-  const dropping: Piece[] = [];
+  droppingBuf.length = 0;
   for (const piece of sim.pieces.values()) {
-    if (piece.state === 'dropping' || piece.state === 'spawning') dropping.push(piece);
+    if (piece.state === 'dropping' || piece.state === 'spawning') droppingBuf.push(piece);
   }
-  dropping.sort((a, b) => b.visualY - a.visualY);
+  droppingBuf.sort((a, b) => b.visualY - a.visualY);
 
-  for (const piece of dropping) {
+  for (const piece of droppingBuf) {
     if (piece.destRow === null) continue;
-    piece.vy = Math.min(DROP_V_MAX, piece.vy + DROP_G * dt);
+    piece.vy = Math.min(dropVMax(sim), piece.vy + dropG(sim) * dt);
     const oldY = piece.visualY;
 
     const below = piecesBelow(sim, piece);
@@ -365,7 +437,8 @@ function integrate(sim: DropSim, dt: number, metrics: DropMetrics): void {
     }
   }
 
-  for (const piece of [...sim.pieces.values()]) {
+  recycleBuf.length = 0;
+  for (const piece of sim.pieces.values()) {
     if (piece.state === 'clearing') {
       piece.clearT += dt;
       if (piece.clearT >= CLEAR_SEC) {
@@ -374,16 +447,18 @@ function integrate(sim: DropSim, dt: number, metrics: DropMetrics): void {
           const slot = sim.slots[row]![piece.col]!;
           if (slot.current === piece) slot.current = null;
         }
-        sim.pieces.delete(piece.id);
+        recycleBuf.push(piece);
       }
       continue;
     }
     if (piece.state === 'stable') tickLanding(piece, dt);
   }
+  for (let i = 0; i < recycleBuf.length; i++) recyclePiece(sim, recycleBuf[i]!);
 }
 
 export function tickDrop(sim: DropSim, dt: number, metrics: DropMetrics): void {
   const step = Math.min(Math.max(dt, 0), 0.05);
+  sim.dropSpeed = metrics.dropSpeed ?? 1;
   sim.time += step;
   scanStarts(sim);
   integrate(sim, step, metrics);

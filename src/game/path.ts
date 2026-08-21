@@ -18,7 +18,7 @@ export const PATH_STICK_DEG = 30;
 export const PATH_TRACE_STEP = 0.4;
 /** 线段与邻格圆盘相交才点名加格；半径 = 该步格心距 × 此值。0.6 小于对角到横竖心的 0.707。短段不扫盘。 */
 export const PATH_CROSS_R = 0.6;
-export const PATH_MIN = 3;
+export const PATH_MIN = 2;
 
 export type PathState = {
   cells: Cell[];

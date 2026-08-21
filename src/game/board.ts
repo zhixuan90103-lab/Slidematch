@@ -49,7 +49,7 @@ export function cellFromLocal(localX: number, localY: number, layout: BoardLayou
   return best;
 }
 
-/** Eight-way connected component size. Size ≥ 3 ⇒ a same-color path of length ≥ 3 exists. */
+/** Eight-way connected component size. Size ≥ PATH_MIN ⇒ a same-color path of that length exists. */
 export function maxComponentSize(colors: number[][]): number {
   const seen = Array.from({ length: ROWS }, () => Array<boolean>(COLS).fill(false));
   let max = 0;
@@ -94,7 +94,7 @@ function forcePath3(colors: number[][]): void {
 export function createFilledBoard(rng: () => number = Math.random): number[][] {
   for (let i = 0; i < 40; i++) {
     const colors = randomFill(rng);
-    if (maxComponentSize(colors) >= 3) return colors;
+    if (maxComponentSize(colors) >= 2) return colors;
   }
   const colors = randomFill(rng);
   forcePath3(colors);

@@ -1,3 +1,11 @@
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('./assets/fonts/Inter-800.woff2') format('woff2');
+}
+
 :root {
   color-scheme: dark;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
@@ -5,7 +13,7 @@
   --design-w: 390;
   --design-h: 844;
   --shell-bg: #12141c;
-  --stage-bg: #0b1020;
+  --stage-bg: #fdf1e7;
 
   /* Desktop sim; native overrides with env() */
   --safe-top: 59px;
@@ -88,11 +96,8 @@ body {
   height: 844px;
   overflow: hidden;
   color-scheme: light;
-  background-color: #3a2418;
-  background-image: url('./assets/bg-table.png');
-  background-size: cover;
-  background-position: center top;
-  background-repeat: no-repeat;
+  background-color: #fdf1e7;
+  background-image: none;
   will-change: transform;
 }
 
@@ -153,28 +158,58 @@ body.native-app #shell {
   top: 0;
   z-index: 3;
   pointer-events: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
   padding-top: calc(var(--safe-top) + var(--ui-pad-top));
   padding-left: calc(var(--safe-left) + var(--ui-pad-x));
   padding-right: calc(var(--safe-right) + var(--ui-pad-x));
+}
+
+.hud-score-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
   text-align: center;
+  pointer-events: none;
+}
+
+#btn-settings {
+  position: relative;
+  z-index: 4;
+  pointer-events: auto;
+  width: 40px;
+  height: 40px;
+  margin-top: 4px;
+  border: none;
+  border-radius: 12px;
+  color: #8f5a3c;
+  background: rgba(253, 241, 231, 0.92);
+  box-shadow: 0 3px 8px rgba(140, 100, 80, 0.22);
+  display: grid;
+  place-items: center;
 }
 
 .hud-label {
   margin: 0;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  color: rgba(255, 244, 220, 0.85);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  font-family: Inter, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: #c47ee0;
+  text-transform: uppercase;
+  text-shadow: none;
 }
 
 .hud-score {
   margin: 2px 0 0;
-  font-size: 36px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: #f8fafc;
-  line-height: 1.1;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
+  font-family: Inter, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 46px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #8f5a3c;
+  line-height: 0.95;
+  text-shadow: none;
 }
 
 #game-board {
@@ -182,21 +217,23 @@ body.native-app #shell {
   z-index: 2;
   pointer-events: auto;
   touch-action: none;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .board-pad {
   position: absolute;
   inset: 0;
   box-sizing: border-box;
-  border: var(--frame-width, 10px) solid transparent;
+  border: var(--frame-width, 19px) solid transparent;
   border-image-source: url('./assets/board-frame.png');
-  border-image-slice: var(--frame-slice, 40) fill;
-  border-image-width: var(--frame-width, 10px);
+  border-image-slice: var(--frame-slice, 48) fill;
+  border-image-width: var(--frame-width, 19px);
   border-image-repeat: stretch;
   background: none;
   color-scheme: light;
   pointer-events: none;
+  border-radius: 28px;
+  box-shadow: 0 4px 8px rgba(140, 100, 80, 0.42);
 }
 
 .board-cells {
@@ -211,6 +248,7 @@ body.native-app #shell {
   overflow: hidden;
   pointer-events: none;
   z-index: 3;
+  border-radius: var(--mask-radius, 5px);
 }
 
 .board-movers {
@@ -228,15 +266,7 @@ body.native-app #shell {
 }
 
 .board-cell::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 0;
-  color-scheme: light;
-  background: url('./assets/cell.png') center / 100% 100% no-repeat;
-  box-shadow: none;
-  opacity: var(--cell-opacity, 1);
-  z-index: 0;
+  content: none;
 }
 
 .board-cell {
@@ -245,40 +275,86 @@ body.native-app #shell {
 
 .board-piece {
   position: absolute;
+  left: 0;
+  top: 0;
   z-index: 1;
-  width: var(--piece-size, 38px);
-  height: var(--piece-size, 38px);
+  width: var(--piece-w, 42px);
+  height: var(--piece-h, 50px);
   object-fit: contain;
   color-scheme: light;
   pointer-events: none;
   user-select: none;
   transform-origin: 50% 100%;
+  border-radius: 22%;
+  box-shadow: 0 2px 3px rgba(90, 55, 80, 0.42);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  contain: layout style;
 }
 
 .board-piece.is-clearing {
   z-index: 2;
 }
 
-#tune-panel {
+#settings-root {
   display: none;
   position: absolute;
-  right: 10px;
-  bottom: 48px;
-  z-index: 5;
+  inset: 0;
+  z-index: 6;
   pointer-events: auto;
-  width: 168px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(20, 14, 10, 0.78);
-  color: #f8fafc;
-  font-size: 11px;
-  backdrop-filter: blur(8px);
+}
+
+#settings-root.is-open {
+  display: block;
+}
+
+.settings-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(80, 50, 40, 0.28);
+}
+
+#tune-panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -46%);
+  width: 240px;
+  max-height: 72%;
+  overflow: auto;
+  padding: 14px 14px 12px;
+  border-radius: 18px;
+  background: #fdf1e7;
+  color: #8f5a3c;
+  font-size: 12px;
+  box-shadow: 0 8px 24px rgba(140, 100, 80, 0.28);
+}
+
+#tune-panel .tune-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 10px;
 }
 
 #tune-panel .tune-title {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 700;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #c47ee0;
+  letter-spacing: 0.1em;
+}
+
+#tune-panel .tune-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 10px;
+  font-size: 18px;
+  line-height: 1;
+  color: #8f5a3c;
+  background: #f3e4d4;
 }
 
 #tune-panel label {
@@ -304,6 +380,11 @@ body.native-app #shell {
   min-height: 32px;
   padding: 6px;
   font-size: 11px;
+  font-weight: 700;
+  color: #8f5a3c;
+  background: #f3e4d4;
+  border: none;
+  border-radius: 10px;
 }
 
 .board-cell.is-hit,

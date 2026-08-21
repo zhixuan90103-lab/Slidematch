@@ -6,8 +6,8 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * - base './' on Vite → relative assets for offline WebView
  */
 const config: CapacitorConfig = {
-  appId: 'com.slidematch.phaseb',
-  appName: 'SlideMatch B',
+  appId: 'com.slidematch.play',
+  appName: 'SlideMatch',
   webDir: 'dist',
   server: {
     androidScheme: 'https',
@@ -15,7 +15,7 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: 'never',
     preferredContentMode: 'mobile',
-    backgroundColor: '#0b1020',
+    backgroundColor: '#fdf1e7',
     scrollEnabled: false,
   },
 };

@@ -1,10 +1,10 @@
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../adapt/design';
 import { cellFromLocal, createFilledBoard } from './board';
-import { BOARD_MASK_EXPAND, COLS, FRAME_SLICE, PIECE_SRC, ROWS } from './config';
+import { COLS, FRAME_SLICE, PIECE_SRC, ROWS } from './config';
 import {
   beginClear,
-  boardBusy,
   CLEAR_SEC,
+  stablePathCount,
   createDropSim,
   needsTick,
   stableColors,
@@ -15,6 +15,7 @@ import { bindSwipeInput } from './input';
 import {
   beginPath,
   canCommit,
+  PATH_MIN,
   lastStep,
   PATH_TRACE_STEP,
   pointsAlongAimed,
@@ -71,7 +72,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     board.style.setProperty('--frame-slice', String(FRAME_SLICE));
     board.style.setProperty('--cell-w', `${layout.cellW}px`);
     board.style.setProperty('--cell-h', `${layout.cellH}px`);
-    board.style.setProperty('--piece-size', `${layout.piece}px`);
+    board.style.setProperty('--piece-w', `${layout.pieceW}px`);
+    board.style.setProperty('--piece-h', `${layout.pieceH}px`);
     board.style.setProperty('--cell-opacity', String(layout.cellOpacity));
 
     cells.style.left = `${layout.gridLeft}px`;
@@ -82,71 +84,100 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     cells.style.gridTemplateRows = `repeat(${ROWS}, ${layout.cellH}px)`;
     cells.style.gap = `${layout.spacing}px`;
 
-    const inset = Math.max(0, layout.frameWidth - BOARD_MASK_EXPAND);
+    const inset = Math.min(tune.maskInset, Math.floor(layout.visualWidth / 2), Math.floor(layout.visualHeight / 2));
     mask.style.left = `${inset}px`;
     mask.style.top = `${inset}px`;
     mask.style.width = `${layout.visualWidth - inset * 2}px`;
     mask.style.height = `${layout.visualHeight - inset * 2}px`;
+    mask.style.setProperty('--mask-radius', `${tune.maskRadius}px`);
 
     movers.style.left = `${layout.gridLeft - inset}px`;
     movers.style.top = `${layout.gridTop - inset}px`;
     movers.style.width = `${layout.gridWidth}px`;
     movers.style.height = `${layout.gridHeight}px`;
 
-    for (const img of movers.querySelectorAll<HTMLImageElement>('.board-piece')) {
-      img.width = layout.piece;
-      img.height = layout.piece;
+    for (const img of pieceEls.values()) {
+      img.style.width = `${layout.pieceW}px`;
+      img.style.height = `${layout.pieceH}px`;
+    }
+    for (const img of imgPool) {
+      img.style.width = `${layout.pieceW}px`;
+      img.style.height = `${layout.pieceH}px`;
     }
     paintPieces();
   };
 
+  const pieceEls = new Map<number, HTMLImageElement>();
+  const imgPool: HTMLImageElement[] = [];
+  const cellEls: HTMLDivElement[][] = [];
+  const lastPath: HTMLDivElement[] = [];
+
   for (let row = 0; row < ROWS; row++) {
+    const line: HTMLDivElement[] = [];
     for (let col = 0; col < COLS; col++) {
       const cell = document.createElement('div');
       cell.className = 'board-cell';
       cell.dataset.row = String(row);
       cell.dataset.col = String(col);
       cells.append(cell);
+      line.push(cell);
     }
+    cellEls.push(line);
   }
 
-  const pieceEls = new Map<number, HTMLImageElement>();
+  const acquireImg = (): HTMLImageElement => {
+    const pooled = imgPool.pop();
+    if (pooled) {
+      pooled.hidden = false;
+      return pooled;
+    }
+    const el = document.createElement('img');
+    el.className = 'board-piece';
+    el.alt = '';
+    el.draggable = false;
+    el.decoding = 'async';
+    movers.append(el);
+    return el;
+  };
 
-  const pieceLeft = (col: number) => col * (layout.cellW + layout.spacing) + (layout.cellW - layout.piece) / 2;
-  const pieceTop = (y: number) => y * (layout.cellH + layout.spacing) + (layout.cellH - layout.piece) / 2;
+  const releaseImg = (el: HTMLImageElement) => {
+    el.hidden = true;
+    el.style.transform = 'translate3d(-9999px,0,0)';
+    imgPool.push(el);
+  };
+
+  const pieceLeft = (col: number) =>
+    col * (layout.cellW + layout.spacing) + (layout.cellW - layout.pieceW) / 2;
+  const pieceTop = (y: number) =>
+    y * (layout.cellH + layout.spacing) + (layout.cellH - layout.pieceH) / 2;
 
   const syncPieceEl = (piece: Piece): HTMLImageElement => {
     let el = pieceEls.get(piece.id);
     if (!el) {
-      el = document.createElement('img');
-      el.className = 'board-piece';
-      el.alt = '';
-      el.draggable = false;
-      el.src = PIECE_SRC[piece.color]!;
-      el.width = layout.piece;
-      el.height = layout.piece;
-      movers.append(el);
+      el = acquireImg();
       pieceEls.set(piece.id, el);
     }
-    el.style.left = `${pieceLeft(piece.col)}px`;
-    el.style.top = `${pieceTop(piece.visualY) + piece.offsetY}px`;
-    el.classList.toggle('is-clearing', piece.state === 'clearing');
+    if (el.dataset.color !== String(piece.color)) {
+      el.dataset.color = String(piece.color);
+      el.src = PIECE_SRC[piece.color]!;
+    }
+    el.style.width = `${layout.pieceW}px`;
+    el.style.height = `${layout.pieceH}px`;
     const t = piece.state === 'clearing' ? Math.min(1, piece.clearT / CLEAR_SEC) : 0;
     const fade = 1 - t;
-    el.style.opacity = String(fade);
-    el.style.transform = `scale(${piece.scaleX * fade}, ${piece.scaleY * fade})`;
+    const x = pieceLeft(piece.col);
+    const y = pieceTop(piece.visualY) + piece.offsetY;
+    el.style.opacity = fade === 1 ? '' : String(fade);
+    el.style.transform = `translate3d(${x}px,${y}px,0) scale(${piece.scaleX * fade},${piece.scaleY * fade})`;
+    el.classList.toggle('is-clearing', piece.state === 'clearing');
     return el;
   };
 
   const paintPieces = () => {
-    const live = new Set<number>();
-    for (const piece of sim.pieces.values()) {
-      live.add(piece.id);
-      syncPieceEl(piece);
-    }
+    for (const piece of sim.pieces.values()) syncPieceEl(piece);
     for (const [id, el] of pieceEls) {
-      if (live.has(id)) continue;
-      el.remove();
+      if (sim.pieces.has(id)) continue;
+      releaseImg(el);
       pieceEls.delete(id);
     }
   };
@@ -171,28 +202,31 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   };
 
   const paintPath = (next: PathState | null, ok: boolean) => {
-    for (const el of cells.querySelectorAll('.is-path, .is-path-tail, .is-path-ok, .is-hit')) {
-      el.classList.remove('is-path', 'is-path-tail', 'is-path-ok', 'is-hit');
+    for (let i = 0; i < lastPath.length; i++) {
+      lastPath[i]!.classList.remove('is-path', 'is-path-tail', 'is-path-ok', 'is-hit');
     }
+    lastPath.length = 0;
     if (!next) return;
     next.cells.forEach((cell, i) => {
-      const el = cells.querySelector(`[data-row="${cell.row}"][data-col="${cell.col}"]`);
+      const el = cellEls[cell.row]?.[cell.col];
       if (!el) return;
       el.classList.add('is-path');
       if (ok) el.classList.add('is-path-ok');
       if (i === next.cells.length - 1) el.classList.add('is-path-tail');
+      lastPath.push(el);
     });
   };
 
   const finishStroke = () => {
-    if (path && canCommit(path) && !boardBusy(sim)) {
+    if (path && canCommit(path) && stablePathCount(sim, path.cells, path.color) >= PATH_MIN) {
       hud.textContent = String(path.cells.length);
       beginClear(sim, path.cells);
       paintPath(null, false);
       paintPieces();
+      ensureLoop();
     } else {
       paintPath(null, false);
-      if (!boardBusy(sim)) hud.textContent = '0';
+      hud.textContent = '0';
     }
     path = null;
     lastLocal = null;
@@ -200,7 +234,6 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
 
   const feedLocal = (loc: { x: number; y: number }) => {
     if (path) return;
-    if (boardBusy(sim)) return;
     const hit = cellFromLocal(loc.x, loc.y, layout);
     if (hit && colors[hit.row]![hit.col]! >= 0) path = beginPath(hit, colors);
   };
@@ -212,18 +245,25 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       return;
     }
 
+    colors = stableColors(sim);
+
     if (kind === 'down') {
-      if (boardBusy(sim)) return;
       lastLocal = loc;
       const hit = cellFromLocal(loc.x, loc.y, layout);
-      colors = stableColors(sim);
       path = hit && colors[hit.row]![hit.col]! >= 0 ? beginPath(hit, colors) : null;
       paintPath(path, false);
       hud.textContent = path ? String(path.cells.length) : '0';
       return;
     }
 
-    if (boardBusy(sim) && !path) return;
+    if (path) {
+      while (path.cells.length) {
+        const tail = path.cells[path.cells.length - 1]!;
+        if (colors[tail.row]![tail.col] === path.color) break;
+        path.cells.pop();
+      }
+      if (!path.cells.length) path = null;
+    }
 
     const stepPx = PATH_TRACE_STEP * Math.min(layout.cellW, layout.cellH);
     const aim = path ? lastStep(path) : null;
@@ -255,7 +295,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       path = null;
       lastLocal = null;
       paintPath(null, false);
-      if (!boardBusy(sim)) hud.textContent = '0';
+      hud.textContent = '0';
     },
   });
 
@@ -265,16 +305,25 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     if (needsTick(sim)) {
       tickDrop(sim, dt, {
         stride: layout.cellH + layout.spacing,
-        pieceH: layout.piece,
+        pieceH: layout.pieceH,
+        dropSpeed: tune.dropSpeed / 100,
       });
       colors = stableColors(sim);
       paintPieces();
+      raf = requestAnimationFrame(loop);
+      return;
     }
+    raf = 0;
+    paintPieces();
+  };
+  const ensureLoop = () => {
+    if (raf) return;
+    lastTs = 0;
     raf = requestAnimationFrame(loop);
   };
-  raf = requestAnimationFrame(loop);
+  ensureLoop();
 
-  const panel = mountTune(uiRoot, tune, (next) => {
+  const settings = mountSettings(uiRoot, tune, (next) => {
     tune = next;
     saveTune(tune);
     applyLayout();
@@ -285,20 +334,25 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       cancelAnimationFrame(raf);
       unbind();
       board.remove();
-      panel.remove();
+      settings.remove();
     },
   };
 }
 
-function mountTune(
+function mountSettings(
   uiRoot: HTMLElement,
   initial: Tune,
   onChange: (tune: Tune) => void,
 ): HTMLElement {
-  const panel = document.createElement('div');
-  panel.id = 'tune-panel';
-  panel.innerHTML = `
-    <p class="tune-title">视觉 / 逻辑</p>
+  const root = document.createElement('div');
+  root.id = 'settings-root';
+  root.innerHTML = `
+    <div class="settings-backdrop" data-close></div>
+    <div id="tune-panel">
+    <div class="tune-head">
+      <p class="tune-title">设置</p>
+      <button type="button" class="tune-close" data-close aria-label="关闭">×</button>
+    </div>
     <label>棋盘宽<span data-k="visualWidth">${initial.visualWidth}</span>
       <input type="range" data-k="visualWidth" min="260" max="390" step="1" value="${initial.visualWidth}" />
     </label>
@@ -309,25 +363,41 @@ function mountTune(
       <input type="range" data-k="spacing" min="0" max="12" step="1" value="${initial.spacing}" />
     </label>
     <label>棋子大小<span data-k="pieceSize">${initial.pieceSize}</span>
-      <input type="range" data-k="pieceSize" min="16" max="48" step="1" value="${initial.pieceSize}" />
+      <input type="range" data-k="pieceSize" min="16" max="128" step="1" value="${initial.pieceSize}" />
     </label>
     <label>格子大小<span data-k="cellSize">${initial.cellSize}</span>
-      <input type="range" data-k="cellSize" min="20" max="56" step="1" value="${initial.cellSize}" />
+      <input type="range" data-k="cellSize" min="20" max="128" step="1" value="${initial.cellSize}" />
     </label>
     <label>格子透明度<span data-k="cellOpacity">${initial.cellOpacity}</span>
       <input type="range" data-k="cellOpacity" min="0" max="100" step="1" value="${initial.cellOpacity}" />
     </label>
+    <label>下落速度<span data-k="dropSpeed">${initial.dropSpeed}</span>
+      <input type="range" data-k="dropSpeed" min="30" max="200" step="5" value="${initial.dropSpeed}" />
+    </label>
+    <label>Mask内缩<span data-k="maskInset">${initial.maskInset}</span>
+      <input type="range" data-k="maskInset" min="0" max="48" step="1" value="${initial.maskInset}" />
+    </label>
+    <label>Mask圆角<span data-k="maskRadius">${initial.maskRadius}</span>
+      <input type="range" data-k="maskRadius" min="0" max="64" step="1" value="${initial.maskRadius}" />
+    </label>
     <p class="tune-meta" data-meta></p>
     <button type="button" data-reset>恢复默认</button>
+    </div>
   `;
-  uiRoot.append(panel);
+  uiRoot.append(root);
+
+  const panel = root.querySelector('#tune-panel')!;
+  const open = () => root.classList.add('is-open');
+  const close = () => root.classList.remove('is-open');
+  uiRoot.querySelector('#btn-settings')?.addEventListener('click', open);
+  root.querySelectorAll('[data-close]').forEach((el) => el.addEventListener('click', close));
 
   const state = { ...initial };
 
   const meta = panel.querySelector<HTMLElement>('[data-meta]')!;
   const syncMeta = () => {
     const L = computeLayout(state);
-    meta.textContent = `逻辑 9×9 · 格 ${L.cellW}px`;
+    meta.textContent = `${ROWS}×${COLS} · 格 ${Math.round(L.cellW)}×${Math.round(L.cellH)} · 子 ${Math.round(L.pieceW)}×${Math.round(L.pieceH)}`;
   };
   syncMeta();
 
@@ -355,9 +425,12 @@ function mountTune(
     setVal('pieceSize', TUNE_DEFAULTS.pieceSize);
     setVal('cellSize', TUNE_DEFAULTS.cellSize);
     setVal('cellOpacity', TUNE_DEFAULTS.cellOpacity);
+    setVal('dropSpeed', TUNE_DEFAULTS.dropSpeed);
+    setVal('maskInset', TUNE_DEFAULTS.maskInset);
+    setVal('maskRadius', TUNE_DEFAULTS.maskRadius);
   });
 
-  return panel;
+  return root;
 }
 
 export { COLS, ROWS };

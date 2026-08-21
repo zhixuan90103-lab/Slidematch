@@ -1,5 +1,5 @@
 /**
- * Boot adapt shell, then 9×9 board + swipe + clear/drop (phase C).
+ * Boot adapt shell, then 6×6 board + swipe + clear/drop (phase C).
  * Keep: adapt/*, create-renderer, DOM contract.
  */
 
@@ -49,9 +49,9 @@ async function boot(): Promise<void> {
 
   const game = mountBoard(uiRoot);
 
-  renderer.setAnimationLoop(() => {
-    renderer.render(scene, camera);
-  });
+  /* Empty scene: do not submit GPU frames every tick on device. */
+  renderer.setAnimationLoop(null);
+  renderer.render(scene, camera);
 
   window.addEventListener(
     'pagehide',

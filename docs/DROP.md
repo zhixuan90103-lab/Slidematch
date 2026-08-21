@@ -28,7 +28,7 @@ SlidetoWord `wave.ts` 只有占坑 + 0.22 + 匀速，作运动第一档参考。
 用：`stable` / `dropping` / `clearing` / `spawning`。  
 不用：`selected` / `swapping` / `settling`（落地直进 `stable`）。
 
-路径只认 `stable`。盘上还有 dropping / clearing / spawning → **整盘不接新划**。
+路径只认 `stable`。下落 / 消除 / 生成中的子不可划；**其它静止子随时可划、抬手消**（不因邻列在掉而锁盘）。
 
 ## 物理参数（TripleMatch 默认）
 
