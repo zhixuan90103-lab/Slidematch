@@ -1,5 +1,5 @@
 import { cellCenter, inBounds, isOrthoAdjacent, NEIGHBOR4, type Cell } from './board';
-import { COLS, PATH_MIN, ROWS, isItemColor } from './config';
+import { COLS, PATH_MIN, ROWS, isItemColor, isMagicColor } from './config';
 import type { BoardLayout } from './settings';
 
 /** 尾格核：小于此距离不加不减。 */
@@ -27,6 +27,8 @@ export type PathState = {
   color: number;
   /** 刚连上变色子：下一格可换成另一色。 */
   flex: boolean;
+  /** 已连上魔法子：本划内任意非空格可续连。 */
+  magic: boolean;
 };
 
 type Pt = { x: number; y: number };
@@ -41,6 +43,7 @@ export function sameCell(a: Cell, b: Cell): boolean {
 
 export function canLinkColor(path: PathState, cellColor: number): boolean {
   if (cellColor < 0) return false;
+  if (path.magic) return true;
   if (path.cells.length === 0) return true;
   if (isItemColor(cellColor)) return true;
   if (path.color < 0 || path.flex) return true;
@@ -48,6 +51,11 @@ export function canLinkColor(path: PathState, cellColor: number): boolean {
 }
 
 export function applyLinkColor(path: PathState, cellColor: number): void {
+  if (isMagicColor(cellColor)) {
+    path.magic = true;
+    path.flex = true;
+    return;
+  }
   if (isItemColor(cellColor)) {
     path.flex = true;
     return;
@@ -60,14 +68,14 @@ export function applyLinkColor(path: PathState, cellColor: number): void {
 
 export function beginPath(start: Cell, colors: number[][]): PathState {
   const cellColor = colors[start.row]![start.col]!;
-  const path: PathState = { cells: [{ row: start.row, col: start.col }], color: -1, flex: false };
+  const path: PathState = { cells: [{ row: start.row, col: start.col }], color: -1, flex: false, magic: false };
   applyLinkColor(path, cellColor);
   return path;
 }
 
 /** 下落把路径中间掏空时，从第一处非法格截断。 */
 export function trimPath(path: PathState, colors: number[][]): PathState {
-  const next: PathState = { cells: [], color: -1, flex: false };
+  const next: PathState = { cells: [], color: -1, flex: false, magic: false };
   for (const cell of path.cells) {
     const cellColor = colors[cell.row]![cell.col]!;
     if (!canLinkColor(next, cellColor)) break;
@@ -204,6 +212,7 @@ export function stepPath(
     cells: path.cells.map((c) => ({ row: c.row, col: c.col })),
     color: path.color,
     flex: path.flex,
+    magic: path.magic,
   };
   const occupied = new Set(nextPath.cells.map(cellKey));
   const unit = Math.min(layout.cellW, layout.cellH);
@@ -233,6 +242,7 @@ export function stepPath(
         const rebuilt = trimPath({ ...nextPath, cells: nextPath.cells }, colors);
         nextPath.color = rebuilt.color;
         nextPath.flex = rebuilt.flex;
+        nextPath.magic = rebuilt.magic;
         continue;
       }
     }
@@ -377,7 +387,7 @@ function appendNeighbor(
   if (!canLinkColor(path, cellColor)) return null;
   const cells = path.cells.map((c) => ({ row: c.row, col: c.col }));
   cells.push({ row: next.row, col: next.col });
-  const out: PathState = { cells, color: path.color, flex: path.flex };
+  const out: PathState = { cells, color: path.color, flex: path.flex, magic: path.magic };
   applyLinkColor(out, cellColor);
   return out;
 }

@@ -58,8 +58,8 @@
 | `piece-sun.png` | 橙太阳 | 360×430 透明底 |
 | `piece-heart.png` | 粉心 | 360×430 透明底 |
 | `piece-star.png` | 紫星 | 360×430 透明底 |
-| `piece-convert.png` | 变色子（五色漩涡） | 360×430 透明底 |
-| `piece-nuke.png` | 清盘子（爆炸） | 360×430 透明底 |
+| `piece-convert.png` | 变色子（彩虹漩涡糖） | 360×430 透明底 |
+| `piece-magic.png` | 魔法子（金币） | 360×430 透明底 |
 | `fonts/Inter-800.woff2` | SCORE / 设置标题 | ExtraBold |
 
 `bg-table.png` 不再使用（舞台纯色）。
@@ -73,7 +73,7 @@
 | 标题 | `SCORE`，Inter 800，15px，字距 0.16em，`#c47ee0` |
 | 数字 | Inter 800，46px，`#8f5a3c` |
 | 位置 | 顶栏水平居中；右侧设置按钮 |
-| 语义 | 当次有效路径长度（占位，见 DESIGN） |
+| 语义 | 累计分；连格小额预览，抬手大额滚动（见 DESIGN） |
 
 ## 大盘投影
 

@@ -5,7 +5,7 @@
 ## 一句话
 
 **TypeScript + Three.js WebGPU + Vite + Capacitor iOS**，设计空间 **390×844** contain letterbox。  
-玩法：**6×6** 滑动连同色，**四向**（只横竖），**≥2** 抬手消除；静止子可划。规范地图：[docs/SPEC.md](./docs/SPEC.md)。玩法 [DESIGN.md](./docs/DESIGN.md)；手感 [OPERATION.md](./docs/OPERATION.md)；数字 [src/game/design.ts](./src/game/design.ts)。
+玩法：**6×6** 滑动连同色，**四向**（只横竖），**≥2** 抬手消除；静止子可划。规范地图：[docs/SPEC.md](./docs/SPEC.md)。玩法 [DESIGN.md](./docs/DESIGN.md)；道具 [ITEMS.md](./docs/ITEMS.md)；手感 [OPERATION.md](./docs/OPERATION.md)；数字 [src/game/design.ts](./src/game/design.ts)。
 
 ## 文档
 
@@ -14,6 +14,7 @@
 | [docs/SPEC.md](./docs/SPEC.md) | 规范地图（先读） |
 | [docs/HANDOFF.md](./docs/HANDOFF.md) | 窗口交接 |
 | [docs/DESIGN.md](./docs/DESIGN.md) | 玩法 |
+| [docs/ITEMS.md](./docs/ITEMS.md) | 道具生成与结算 |
 | [docs/BOARD.md](./docs/BOARD.md) | 逻辑 6×6 / 视觉框 / 棋子绘制 / HUD |
 | [docs/SWIPE.md](./docs/SWIPE.md) | 可拐弯路径（摘要） |
 | [docs/OPERATION.md](./docs/OPERATION.md) | 操作手感（实现真源） |
@@ -32,6 +33,8 @@
 |------|------|
 | Web 启动 | `index.html` → `src/main.ts` |
 | 产品设计数字 | `src/game/design.ts` |
+| 道具规则 | `src/game/items.ts` |
+| 分数 | `src/game/score.ts` |
 | 静盘 | `src/game/config.ts` · `settings.ts` · `board.ts` · `mount.ts` · `src/assets/` |
 | 设计舞台 | `src/adapt/design.ts` |
 | 设备预览 | `src/adapt/devicePreview.ts` |
@@ -93,4 +96,4 @@ npm run ios
 
 - Android  
 - WebGL 静默回退  
-- 爆炸 / 全盘清道具（见 DESIGN）
+- 按钮式爆炸 / 全盘清道具（见 DESIGN；清屏 = 魔法局划满盘）

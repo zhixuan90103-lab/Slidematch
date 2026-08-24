@@ -9,12 +9,13 @@ https://notebooklm.google.com/notebook/01c159a3-b263-45ab-ae06-564996aacb77
 
 1. [AGENTS.md](../AGENTS.md) 底座硬性  
 2. [DESIGN.md](./DESIGN.md) 玩法 6×6 · ≥2  
-3. [OPERATION.md](./OPERATION.md) 滑动手感  
-4. [BOARD.md](./BOARD.md) + `src/game/design.ts` 盘面与棋子绘制数字  
-5. 下落运动：只听 [DROP.md](./DROP.md) + `LOOK.dropV0` / `dropAccel` / `dropVMax`。占坑形态可参考 TripleMatch（`current`/`incoming`、0.22），**不要听它的 g/v0/vMax** 
-6. 指针 / DOM 盘 / rect：SlidetoWord `portrait-webgpu-base/src/game/mount.ts`  
-7. 射线 path、三消匹配、刚体物理：不听  
-8. 滑动检索：[SWIPE-RESEARCH.md](./SWIPE-RESEARCH.md)（不覆盖规则）  
+3. [ITEMS.md](./ITEMS.md) 道具生成与结算  
+4. [OPERATION.md](./OPERATION.md) 滑动手感  
+5. [BOARD.md](./BOARD.md) + `src/game/design.ts` 盘面与棋子绘制数字  
+6. 下落运动：只听 [DROP.md](./DROP.md) + `LOOK.dropV0` / `dropAccel` / `dropVMax`。占坑形态可参考 TripleMatch（`current`/`incoming`、0.22），**不要听它的 g/v0/vMax** 
+7. 指针 / DOM 盘 / rect：SlidetoWord `portrait-webgpu-base/src/game/mount.ts`  
+8. 射线 path、三消匹配、刚体物理：不听  
+9. 滑动检索：[SWIPE-RESEARCH.md](./SWIPE-RESEARCH.md)（不覆盖规则）  
 
 ## 对照路径
 

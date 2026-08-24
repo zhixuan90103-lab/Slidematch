@@ -52,6 +52,8 @@ index.html
 | 视觉/规则默认 | `src/game/design.ts`（`LOOK` / `PIECE_DRAW` / `RULES`） |
 | 调参覆盖 | `src/game/settings.ts`；HUD 齿轮 → `#settings-root` |
 | 素材 | `src/assets/` · [BOARD.md](./BOARD.md) |
+| 道具生成/结算 | `src/game/items.ts` · [ITEMS.md](./ITEMS.md) |
+| 分数 | `src/game/score.ts` · [DESIGN.md](./DESIGN.md) |
 | 初盘 / 点中 | `src/game/board.ts` |
 | 盘 DOM | `src/game/mount.ts` · `style.css` |
 | 玩法规则 | [DESIGN.md](./DESIGN.md) |

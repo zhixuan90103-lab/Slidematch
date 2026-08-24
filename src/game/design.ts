@@ -55,12 +55,25 @@ export const RULES = {
   neighborhood: 4,
   /** 普通划（路径无道具）≥ 此值，队尾出变色子。 */
   itemMin: 5,
-  /** ≥ 此值出清盘子；用了道具只要够长也出。 */
-  nukeMin: 10,
+  /** 普通划（路径无道具）≥ 此值，队尾出魔法子（不出变色）。 */
+  magicMin: 10,
   /** colors[] 哨兵：变色子。 */
   convertColor: 5,
-  /** colors[] 哨兵：清盘子。 */
-  nukeColor: 6,
+  /** colors[] 哨兵：魔法子。 */
+  magicColor: 6,
+  /** 抬手结算：unit × 消除格数² × 倍率。 */
+  scoreUnit: 1,
+  /** 滑动中每连一格加这么多（预览，未进累计）。1–9 格即个位 1–9。 */
+  scoreLinkUnit: 1,
+  /** 路径含变色且无魔法。 */
+  scoreConvertMul: 2,
+  /** 路径含魔法（优先于变色，不叠乘）。 */
+  scoreMagicMul: 3,
+  /** HUD 数字滚动最短/最长（秒）。 */
+  scoreRollMinSec: 0.2,
+  scoreRollMaxSec: 0.9,
+  /** 每差 1 分额外加的滚动时间（秒）。 */
+  scoreRollPerPoint: 0.0012,
 } as const;
 
 export const HUD = {

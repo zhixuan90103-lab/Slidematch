@@ -45,6 +45,6 @@
 
 运行时上限不会低于初速度。不要用刚体。
 
-道具若占格，该格不能 `canReceiveDrop`（占格未定点，先当普通子）。
+道具占格，下落上与普通子相同（`current` / `incoming`）。生成与结算见 [ITEMS.md](./ITEMS.md)。
 
 相关：[DESIGN.md](./DESIGN.md) · [BOARD.md](./BOARD.md)

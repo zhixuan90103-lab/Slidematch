@@ -6,7 +6,7 @@ import pieceSun from '../assets/piece-sun.png';
 import pieceHeart from '../assets/piece-heart.png';
 import pieceStar from '../assets/piece-star.png';
 import pieceConvert from '../assets/piece-convert.png';
-import pieceNuke from '../assets/piece-nuke.png';
+import pieceMagic from '../assets/piece-magic.png';
 import { ART, GRID, LOOK, RULES } from './design';
 
 export {
@@ -37,23 +37,26 @@ export const FRAME_WIDTH = Math.round(ART.frameSlice * ART.frameScale);
 export const COLOR_COUNT = RULES.colorCount;
 export const PATH_MIN = RULES.pathMin;
 export const ITEM_MIN = RULES.itemMin;
-export const NUKE_MIN = RULES.nukeMin;
+export const MAGIC_MIN = RULES.magicMin;
 export const CONVERT_COLOR = RULES.convertColor;
-export const NUKE_COLOR = RULES.nukeColor;
+export const MAGIC_COLOR = RULES.magicColor;
+export const SCORE_UNIT = RULES.scoreUnit;
+export const SCORE_CONVERT_MUL = RULES.scoreConvertMul;
+export const SCORE_MAGIC_MUL = RULES.scoreMagicMul;
 
 export function isConvertColor(color: number): boolean {
   return color === CONVERT_COLOR;
 }
 
-export function isNukeColor(color: number): boolean {
-  return color === NUKE_COLOR;
+export function isMagicColor(color: number): boolean {
+  return color === MAGIC_COLOR;
 }
 
 export function isItemColor(color: number): boolean {
-  return isConvertColor(color) || isNukeColor(color);
+  return isConvertColor(color) || isMagicColor(color);
 }
 
-/** 盘面 0–2；5 convert；6 nuke */
+/** 盘面 0–2；5 convert；6 magic */
 export const PIECE_SRC = [
   pieceDrop,
   pieceLeaf,
@@ -61,5 +64,5 @@ export const PIECE_SRC = [
   pieceHeart,
   pieceStar,
   pieceConvert,
-  pieceNuke,
+  pieceMagic,
 ] as const;

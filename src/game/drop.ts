@@ -258,8 +258,7 @@ function placeItem(sim: DropSim, cell: Cell, color: number): boolean {
 }
 
 export type ClearOpts = {
-  extraColor?: number;
-  fullBoard?: boolean;
+  extraCells?: Cell[];
   spawnColor?: number | null;
 };
 
@@ -272,18 +271,8 @@ export function beginClear(sim: DropSim, cells: Cell[], opts: ClearOpts = {}): v
     markClearing(sim, cell);
   };
   for (const cell of cells) add(cell);
-  if (opts.fullBoard) {
-    for (let row = 0; row < ROWS; row++) {
-      for (let col = 0; col < COLS; col++) add({ row, col });
-    }
-  } else if (opts.extraColor !== undefined && opts.extraColor >= 0) {
-    const want = opts.extraColor;
-    for (let row = 0; row < ROWS; row++) {
-      for (let col = 0; col < COLS; col++) {
-        const p = sim.slots[row]![col]!.current;
-        if (p && p.state === 'stable' && p.color === want) add({ row, col });
-      }
-    }
+  if (opts.extraCells) {
+    for (const cell of opts.extraCells) add(cell);
   }
   if (opts.spawnColor != null && cells.length) {
     const last = cells[cells.length - 1]!;

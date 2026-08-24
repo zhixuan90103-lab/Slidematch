@@ -3,18 +3,13 @@ import { cellFromLocal, createFilledBoard } from './board';
 import {
   COLS,
   FRAME_SLICE,
-  CONVERT_COLOR,
-  ITEM_MIN,
-  NUKE_COLOR,
-  NUKE_MIN,
   PATH_MIN,
   PIECE_SRC,
   ROWS,
   STAGE,
   clampPieceDpr,
   isConvertColor,
-  isItemColor,
-  isNukeColor,
+  isMagicColor,
   pieceDropShadowFilter,
   pieceLayerTransform,
 } from './config';
@@ -29,6 +24,8 @@ import {
   type Piece,
 } from './drop';
 import { bindSwipeInput } from './input';
+import { displayColor, resolveStroke } from './items';
+import { commitStroke, createScoreRoll, linkPreview, setScoreTarget, strokeScore, tickScoreRoll } from './score';
 import {
   beginPath,
   canCommit,
@@ -54,7 +51,16 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   let layout = computeLayout(tune);
 
   const hud = uiRoot.querySelector('#hud-score')!;
-  hud.textContent = '0';
+  const scoreRoll = createScoreRoll();
+  const paintHud = () => {
+    hud.textContent = String(scoreRoll.displayed);
+  };
+  const aimHud = (target: number) => {
+    setScoreTarget(scoreRoll, target);
+    paintHud();
+    ensureLoop();
+  };
+  paintHud();
 
   const board = document.createElement('div');
   board.id = 'game-board';
@@ -177,9 +183,10 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       el = acquireImg();
       pieceEls.set(piece.id, el);
     }
-    if (el.dataset.color !== String(piece.color)) {
-      el.dataset.color = String(piece.color);
-      el.src = PIECE_SRC[piece.color]!;
+    const shown = displayColor(piece.color, board.classList.contains('is-magic-look'));
+    if (el.dataset.color !== String(shown)) {
+      el.dataset.color = String(shown);
+      el.src = PIECE_SRC[shown]!;
     }
     setPieceBitmapSize(el);
     const t = piece.state === 'clearing' ? Math.min(1, piece.clearT / CLEAR_SEC) : 0;
@@ -197,8 +204,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       pieceDpr(),
     );
     el.classList.toggle('is-clearing', piece.state === 'clearing');
-    el.classList.toggle('is-convert', isConvertColor(piece.color));
-    el.classList.toggle('is-nuke', isNukeColor(piece.color));
+    el.classList.toggle('is-convert', isConvertColor(piece.color) && !isMagicColor(shown));
+    el.classList.toggle('is-magic', isMagicColor(shown));
     return el;
   };
 
@@ -235,6 +242,11 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       lastPath[i]!.classList.remove('is-path', 'is-path-tail', 'is-path-ok', 'is-hit');
     }
     lastPath.length = 0;
+    const magicLook = !!next?.magic;
+    if (board.classList.contains('is-magic-look') !== magicLook) {
+      board.classList.toggle('is-magic-look', magicLook);
+      paintPieces();
+    }
     if (!next) return;
     next.cells.forEach((cell, i) => {
       const el = cellEls[cell.row]?.[cell.col];
@@ -248,25 +260,16 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
 
   const finishStroke = () => {
     if (path && canCommit(path) && stablePathCount(sim, path.cells) >= PATH_MIN) {
-      hud.textContent = String(path.cells.length);
-      const usedItem = path.cells.some((c) => isItemColor(colors[c.row]![c.col]!));
-      const usedNuke = path.cells.some((c) => isNukeColor(colors[c.row]![c.col]!));
-      const usedConvert = path.cells.some((c) => isConvertColor(colors[c.row]![c.col]!));
-      let spawnColor: number | null = null;
-      if (usedNuke) spawnColor = null;
-      else if (path.cells.length >= NUKE_MIN) spawnColor = NUKE_COLOR;
-      else if (!usedItem && path.cells.length >= ITEM_MIN) spawnColor = CONVERT_COLOR;
-      beginClear(sim, path.cells, {
-        extraColor: usedConvert && !usedNuke && path.color >= 0 ? path.color : undefined,
-        fullBoard: usedNuke && path.cells.length >= NUKE_MIN,
-        spawnColor,
-      });
+      const settle = resolveStroke(path, colors);
+      commitStroke(scoreRoll, strokeScore(path, colors, settle));
+      beginClear(sim, path.cells, settle);
       paintPath(null, false);
       paintPieces();
+      paintHud();
       ensureLoop();
     } else {
       paintPath(null, false);
-      hud.textContent = '0';
+      aimHud(scoreRoll.committed);
     }
     path = null;
     lastLocal = null;
@@ -292,7 +295,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       const hit = cellFromLocal(loc.x, loc.y, layout);
       path = hit && colors[hit.row]![hit.col]! >= 0 ? beginPath(hit, colors) : null;
       paintPath(path, false);
-      hud.textContent = path ? String(path.cells.length) : '0';
+      aimHud(scoreRoll.committed + (path ? linkPreview(path.cells.length) : 0));
       return;
     }
 
@@ -322,7 +325,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       return;
     }
     paintPath(path, false);
-    hud.textContent = path ? String(path.cells.length) : '0';
+    aimHud(scoreRoll.committed + (path ? linkPreview(path.cells.length) : 0));
   };
 
   const unbind = bindSwipeInput(board, {
@@ -331,13 +334,15 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       path = null;
       lastLocal = null;
       paintPath(null, false);
-      hud.textContent = '0';
+      aimHud(scoreRoll.committed);
     },
   });
 
   const loop = (ts: number) => {
     const dt = lastTs ? (ts - lastTs) / 1000 : 0;
     lastTs = ts;
+    let keep = tickScoreRoll(scoreRoll, dt);
+    if (keep) paintHud();
     if (needsTick(sim)) {
       tickDrop(sim, dt, {
         stride: layout.cellH + layout.spacing,
@@ -348,10 +353,14 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       });
       colors = stableColors(sim);
       paintPieces();
+      keep = true;
+    }
+    if (keep) {
       raf = requestAnimationFrame(loop);
       return;
     }
     raf = 0;
+    paintHud();
     paintPieces();
   };
   const ensureLoop = () => {
