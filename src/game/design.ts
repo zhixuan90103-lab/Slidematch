@@ -47,6 +47,30 @@ export const LOOK = {
   maskRadius: 5,
 } as const;
 
+/** 按下反馈。不进设置调参。 */
+export const FEEL = {
+  pressOtherOpacity: 0.5,
+  pressGlowOpacity: 0.1,
+  /** 路径子放大倍数（相对 1）。 */
+  pressScale: 1.05,
+  /** 路径子上浮（设计像素，Y 向上）。 */
+  pressLift: 6,
+  /** 放大/上浮弹簧：刚度。 */
+  pressSpring: 480,
+  /** 放大/上浮弹簧：阻尼。越小越弹。 */
+  pressDamp: 12,
+  /** 入队时初速度，让过冲更明显。 */
+  pressPopVel: 7.5,
+  /** 取消选择：大小+上浮归位时长（秒）。 */
+  pressOutSec: 0.15,
+  /** 其它色透明度过渡（秒）。 */
+  pressDimSec: 0.08,
+  /** 待机：上下起伏（设计像素）。 */
+  pressIdleLift: 0.3,
+  /** 待机：起伏频率（Hz）。 */
+  pressIdleHz: 0.85,
+} as const;
+
 export const RULES = {
   /** 抬手有效路径最短长度。 */
   pathMin: 2,
@@ -118,7 +142,9 @@ export function pieceLayerTransform(
   pieceW: number,
   pieceH: number,
   dpr: number,
+  rotateDeg = 0,
 ): string {
   const inv = 1 / clampPieceDpr(dpr);
-  return `translate3d(${x}px,${y}px,0) translate(${pieceW / 2}px,${pieceH}px) scale(${scaleX},${scaleY}) translate(${-pieceW / 2}px,${-pieceH}px) scale(${inv})`;
+  const rot = rotateDeg ? `rotate(${rotateDeg}deg) ` : '';
+  return `translate3d(${x}px,${y}px,0) translate(${pieceW / 2}px,${pieceH / 2}px) ${rot}translate(${-pieceW / 2}px,${-pieceH / 2}px) translate(${pieceW / 2}px,${pieceH}px) scale(${scaleX},${scaleY}) translate(${-pieceW / 2}px,${-pieceH}px) scale(${inv})`;
 }

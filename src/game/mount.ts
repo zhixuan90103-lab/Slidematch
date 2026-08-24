@@ -2,6 +2,7 @@ import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../adapt/design';
 import { cellFromLocal, createFilledBoard } from './board';
 import {
   COLS,
+  FEEL,
   FRAME_SLICE,
   PATH_MIN,
   PIECE_SRC,
@@ -9,6 +10,7 @@ import {
   STAGE,
   clampPieceDpr,
   isConvertColor,
+  isItemColor,
   isMagicColor,
   pieceDropShadowFilter,
   pieceLayerTransform,
@@ -82,6 +84,10 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   movers.className = 'board-movers';
   mask.append(movers);
 
+  const lifts = document.createElement('div');
+  lifts.className = 'board-lifts';
+  board.append(lifts);
+
   const applyLayout = () => {
     layout = computeLayout(tune);
     const left = (DESIGN_WIDTH - layout.visualWidth) / 2;
@@ -119,15 +125,28 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     movers.style.width = `${layout.gridWidth}px`;
     movers.style.height = `${layout.gridHeight}px`;
 
+    lifts.style.left = `${layout.gridLeft}px`;
+    lifts.style.top = `${layout.gridTop}px`;
+    lifts.style.width = `${layout.gridWidth}px`;
+    lifts.style.height = `${layout.gridHeight}px`;
+
     for (const img of pieceEls.values()) setPieceBitmapSize(img);
     for (const img of imgPool) setPieceBitmapSize(img);
     paintPieces();
   };
 
   const pieceEls = new Map<number, HTMLImageElement>();
+  const glowEls = new Map<number, HTMLImageElement>();
   const imgPool: HTMLImageElement[] = [];
   const cellEls: HTMLDivElement[][] = [];
   const lastPath: HTMLDivElement[] = [];
+  const pathKeys = new Set<string>();
+  const popT = new Map<number, number>();
+  const popV = new Map<number, number>();
+  const idleT = new Map<number, number>();
+  const popOutFrom = new Map<number, number>();
+  const popOutT = new Map<number, number>();
+  const dimK = new Map<number, number>();
 
   for (let row = 0; row < ROWS; row++) {
     const line: HTMLDivElement[] = [];
@@ -157,8 +176,18 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     return el;
   };
 
+  const acquireGlow = (): HTMLImageElement => {
+    const el = acquireImg();
+    el.classList.add('is-additive-glow');
+    return el;
+  };
+
   const releaseImg = (el: HTMLImageElement) => {
+    el.classList.remove('is-additive-glow', 'is-dim', 'is-clearing', 'is-convert', 'is-magic', 'is-lifted');
     el.hidden = true;
+    el.style.opacity = '';
+    el.style.filter = '';
+    el.style.zIndex = '';
     el.style.transform = 'translate3d(-9999px,0,0)';
     imgPool.push(el);
   };
@@ -193,12 +222,21 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const fade = 1 - t;
     const x = pieceLeft(piece.col);
     const y = pieceTop(piece.visualY) + piece.offsetY;
-    el.style.opacity = fade === 1 ? '' : String(fade);
+    const dimAmt = dimK.get(piece.id) ?? 0;
+    const opacity = fade * (1 - dimAmt * (1 - FEEL.pressOtherOpacity));
+    el.style.opacity = opacity === 1 ? '' : String(opacity);
+    const popK = popT.get(piece.id) ?? 0;
+    const popS = 1 + (FEEL.pressScale - 1) * popK;
+    const idle = idleT.get(piece.id) ?? 0;
+    const vel = popV.get(piece.id) ?? 0;
+    const settle = Math.max(0, 1 - (Math.abs(popK - 1) + Math.abs(vel) * 0.06) / 0.32);
+    const bob =
+      FEEL.pressIdleLift * settle * Math.sin(idle * FEEL.pressIdleHz * Math.PI * 2 + piece.id * 0.9);
     el.style.transform = pieceLayerTransform(
       x,
-      y,
-      piece.scaleX * fade,
-      piece.scaleY * fade,
+      y - FEEL.pressLift * Math.max(0, popK) - bob,
+      piece.scaleX * fade * popS,
+      piece.scaleY * fade * popS,
       layout.pieceW,
       layout.pieceH,
       pieceDpr(),
@@ -206,6 +244,35 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     el.classList.toggle('is-clearing', piece.state === 'clearing');
     el.classList.toggle('is-convert', isConvertColor(piece.color) && !isMagicColor(shown));
     el.classList.toggle('is-magic', isMagicColor(shown));
+    el.classList.toggle('is-dim', dimAmt > 0.02);
+    el.classList.toggle('is-lifted', popK > 0);
+    const z = Math.round(piece.visualY * 20 + popK * 6);
+    el.style.zIndex = String(10 + z);
+    const host = piece.visualY < -0.02 ? movers : lifts;
+    if (el.parentElement !== host) host.append(el);
+
+    let glow = glowEls.get(piece.id);
+    const wantGlow = popK > 0.001 && piece.state !== 'clearing' && fade > 0.2;
+    if (wantGlow) {
+      if (!glow) {
+        glow = acquireGlow();
+        glowEls.set(piece.id, glow);
+      }
+      if (glow.dataset.color !== String(shown)) {
+        glow.dataset.color = String(shown);
+        glow.src = PIECE_SRC[shown]!;
+      }
+      setPieceBitmapSize(glow);
+      glow.style.filter = 'none';
+      glow.style.opacity = String(FEEL.pressGlowOpacity * fade * popK);
+      glow.style.transform = el.style.transform;
+      glow.style.zIndex = String(11 + z);
+      if (glow.parentElement !== host) host.append(glow);
+    } else if (glow) {
+      glow.classList.remove('is-additive-glow');
+      releaseImg(glow);
+      glowEls.delete(piece.id);
+    }
     return el;
   };
 
@@ -216,12 +283,18 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       releaseImg(el);
       pieceEls.delete(id);
     }
+    for (const [id, el] of glowEls) {
+      if (sim.pieces.has(id) && pathKeys.size) continue;
+      el.classList.remove('is-additive-glow');
+      releaseImg(el);
+      glowEls.delete(id);
+    }
   };
-
-  applyLayout();
 
   let path: PathState | null = null;
   let lastLocal: { x: number; y: number } | null = null;
+  applyLayout();
+
   let raf = 0;
   let lastTs = 0;
 
@@ -242,20 +315,24 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       lastPath[i]!.classList.remove('is-path', 'is-path-tail', 'is-path-ok', 'is-hit');
     }
     lastPath.length = 0;
+    pathKeys.clear();
     const magicLook = !!next?.magic;
     if (board.classList.contains('is-magic-look') !== magicLook) {
       board.classList.toggle('is-magic-look', magicLook);
-      paintPieces();
     }
-    if (!next) return;
-    next.cells.forEach((cell, i) => {
-      const el = cellEls[cell.row]?.[cell.col];
-      if (!el) return;
-      el.classList.add('is-path');
-      if (ok) el.classList.add('is-path-ok');
-      if (i === next.cells.length - 1) el.classList.add('is-path-tail');
-      lastPath.push(el);
-    });
+    if (next) {
+      next.cells.forEach((cell, i) => {
+        pathKeys.add(`${cell.row},${cell.col}`);
+        const el = cellEls[cell.row]?.[cell.col];
+        if (!el) return;
+        el.classList.add('is-path');
+        if (ok) el.classList.add('is-path-ok');
+        if (i === next.cells.length - 1) el.classList.add('is-path-tail');
+        lastPath.push(el);
+      });
+    }
+    paintPieces();
+    ensureLoop();
   };
 
   const finishStroke = () => {
@@ -263,16 +340,17 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       const settle = resolveStroke(path, colors);
       commitStroke(scoreRoll, strokeScore(path, colors, settle));
       beginClear(sim, path.cells, settle);
+      path = null;
+      lastLocal = null;
       paintPath(null, false);
-      paintPieces();
       paintHud();
       ensureLoop();
     } else {
+      path = null;
+      lastLocal = null;
       paintPath(null, false);
       aimHud(scoreRoll.committed);
     }
-    path = null;
-    lastLocal = null;
   };
 
   const feedLocal = (loc: { x: number; y: number }) => {
@@ -338,12 +416,116 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     },
   });
 
+  const tickPressPop = (dt: number): boolean => {
+    const step = Math.min(dt, 1 / 30);
+    const want = new Set<number>();
+    if (path) {
+      for (const piece of sim.pieces.values()) {
+        if (piece.state === 'clearing') continue;
+        const pieceRow = piece.destRow ?? piece.sourceRow;
+        if (pathKeys.has(`${pieceRow},${piece.col}`)) want.add(piece.id);
+      }
+    }
+    let busy = false;
+    const ids = new Set(popT.keys());
+    for (const id of want) ids.add(id);
+    for (const id of ids) {
+      const target = want.has(id) ? 1 : 0;
+      const fresh = !popT.has(id);
+      let x = popT.get(id) ?? 0;
+      let vel = popV.get(id) ?? (fresh && target === 1 ? FEEL.pressPopVel : 0);
+
+      if (target === 1) {
+        popOutFrom.delete(id);
+        popOutT.delete(id);
+        vel += ((1 - x) * FEEL.pressSpring - vel * FEEL.pressDamp) * step;
+        x += vel * step;
+        if (Math.abs(1 - x) < 0.003 && Math.abs(vel) < 0.03) {
+          x = 1;
+          vel = 0;
+        } else {
+          busy = true;
+        }
+      } else {
+        if (!popOutFrom.has(id)) {
+          popOutFrom.set(id, x);
+          popOutT.set(id, 0);
+        }
+        const u = Math.min(1, (popOutT.get(id) ?? 0) + step / FEEL.pressOutSec);
+        popOutT.set(id, u);
+        const ease = 1 - (1 - u) * (1 - u);
+        x = (popOutFrom.get(id) ?? 0) * (1 - ease);
+        vel = 0;
+        if (u >= 1) {
+          x = 0;
+        } else {
+          busy = true;
+        }
+      }
+
+      if (target === 0 && x === 0) {
+        popT.delete(id);
+        popV.delete(id);
+        idleT.delete(id);
+        popOutFrom.delete(id);
+        popOutT.delete(id);
+      } else {
+        popT.set(id, x);
+        popV.set(id, vel);
+        if (target === 1) {
+          idleT.set(id, (idleT.get(id) ?? 0) + step);
+          busy = true;
+        } else {
+          idleT.delete(id);
+        }
+      }
+    }
+    return busy;
+  };
+
+  const pieceShouldDim = (piece: Piece): boolean => {
+    if (!path || path.magic || piece.state === 'clearing') return false;
+    const pieceRow = piece.destRow ?? piece.sourceRow;
+    if (pathKeys.has(`${pieceRow},${piece.col}`)) return false;
+    if (path.color < 0) return true;
+    if (isItemColor(piece.color)) return false;
+    return piece.color !== path.color;
+  };
+
+  const tickDim = (dt: number): boolean => {
+    const rate = 1 / FEEL.pressDimSec;
+    const step = Math.min(dt, 1 / 30) * rate;
+    let busy = false;
+    const seen = new Set<number>();
+    for (const piece of sim.pieces.values()) {
+      seen.add(piece.id);
+      const target = pieceShouldDim(piece) ? 1 : 0;
+      let v = dimK.get(piece.id) ?? 0;
+      if (v < target) {
+        v = Math.min(target, v + step);
+        busy = true;
+      } else if (v > target) {
+        v = Math.max(target, v - step);
+        busy = true;
+      }
+      if (v <= 0) dimK.delete(piece.id);
+      else dimK.set(piece.id, v);
+    }
+    for (const id of dimK.keys()) {
+      if (!seen.has(id)) dimK.delete(id);
+    }
+    return busy;
+  };
+
   const loop = (ts: number) => {
     const dt = lastTs ? (ts - lastTs) / 1000 : 0;
     lastTs = ts;
     let keep = tickScoreRoll(scoreRoll, dt);
     if (keep) paintHud();
-    if (needsTick(sim)) {
+    const popping = tickPressPop(dt);
+    const dimming = tickDim(dt);
+    const dropping = needsTick(sim);
+    if (dropping) {
       tickDrop(sim, dt, {
         stride: layout.cellH + layout.spacing,
         pieceH: layout.pieceH,
@@ -352,6 +534,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         dropVMax: tune.dropVMax,
       });
       colors = stableColors(sim);
+    }
+    if (dropping || popping || dimming) {
       paintPieces();
       keep = true;
     }
@@ -363,11 +547,11 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     paintHud();
     paintPieces();
   };
-  const ensureLoop = () => {
+  function ensureLoop() {
     if (raf) return;
     lastTs = 0;
     raf = requestAnimationFrame(loop);
-  };
+  }
   ensureLoop();
 
   const settings = mountSettings(uiRoot, tune, (next) => {

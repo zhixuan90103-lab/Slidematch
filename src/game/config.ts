@@ -12,6 +12,7 @@ import { ART, GRID, LOOK, RULES } from './design';
 export {
   APP,
   ART,
+  FEEL,
   GRID,
   HUD,
   LOOK,

@@ -258,6 +258,14 @@ body.native-app #shell {
   pointer-events: none;
 }
 
+/* 上浮子在 mask 外，避免被框内窗口裁切。 */
+.board-lifts {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 4;
+}
+
 .board-cell {
   display: flex;
   align-items: center;
@@ -305,8 +313,10 @@ body.native-app #shell {
   contain: layout style;
 }
 
-.board-piece.is-clearing {
-  z-index: 2;
+.board-piece.is-additive-glow {
+  filter: none;
+  mix-blend-mode: plus-lighter;
+  pointer-events: none;
 }
 
 #settings-root {
@@ -397,20 +407,6 @@ body.native-app #shell {
   background: #f3e4d4;
   border: none;
   border-radius: 10px;
-}
-
-.board-cell.is-hit,
-.board-cell.is-path {
-  outline: 2px solid #fff;
-  outline-offset: -1px;
-}
-
-.board-cell.is-path-tail {
-  outline-width: 3px;
-}
-
-.board-cell.is-path-ok {
-  outline-color: #3d9a4a;
 }
 
 header {
