@@ -1,14 +1,18 @@
-import { COLOR_COUNT, COLS, ROWS } from './config';
+import { COLOR_COUNT, COLS, PATH_MIN, ROWS } from './config';
 import type { BoardLayout } from './settings';
 
 export type Cell = { row: number; col: number };
 
-export const NEIGHBOR8: Cell[] = [];
-for (let dr = -1; dr <= 1; dr++) {
-  for (let dc = -1; dc <= 1; dc++) {
-    if (dr === 0 && dc === 0) continue;
-    NEIGHBOR8.push({ row: dr, col: dc });
-  }
+/** 四邻：上 / 下 / 左 / 右。对角非法。 */
+export const NEIGHBOR4: Cell[] = [
+  { row: 0, col: 1 },
+  { row: 1, col: 0 },
+  { row: 0, col: -1 },
+  { row: -1, col: 0 },
+];
+
+export function isOrthoAdjacent(a: Cell, b: Cell): boolean {
+  return Math.abs(a.row - b.row) + Math.abs(a.col - b.col) === 1;
 }
 
 export function inBounds(cell: Cell): boolean {
@@ -49,7 +53,7 @@ export function cellFromLocal(localX: number, localY: number, layout: BoardLayou
   return best;
 }
 
-/** Eight-way connected component size. Size ≥ PATH_MIN ⇒ a same-color path of that length exists. */
+/** Four-way connected component size. Size ≥ PATH_MIN ⇒ a same-color orthogonal path exists. */
 export function maxComponentSize(colors: number[][]): number {
   const seen = Array.from({ length: ROWS }, () => Array<boolean>(COLS).fill(false));
   let max = 0;
@@ -64,7 +68,7 @@ export function maxComponentSize(colors: number[][]): number {
       while (stack.length) {
         const cur = stack.pop()!;
         size += 1;
-        for (const d of NEIGHBOR8) {
+        for (const d of NEIGHBOR4) {
           const n = { row: cur.row + d.row, col: cur.col + d.col };
           if (!inBounds(n) || seen[n.row]![n.col] || colors[n.row]![n.col] !== color) continue;
           seen[n.row]![n.col] = true;
@@ -83,21 +87,20 @@ function randomFill(rng: () => number): number[][] {
   );
 }
 
-function forcePath3(colors: number[][]): void {
-  const row = 4;
-  const col = 3;
+function forceMinPath(colors: number[][]): void {
+  const row = Math.min(ROWS - 1, 4);
+  const col = Math.min(COLS - PATH_MIN, 3);
   const c = colors[row]![col]!;
-  colors[row]![col + 1] = c;
-  colors[row]![col + 2] = c;
+  for (let i = 1; i < PATH_MIN; i++) colors[row]![col + i] = c;
 }
 
 export function createFilledBoard(rng: () => number = Math.random): number[][] {
   for (let i = 0; i < 40; i++) {
     const colors = randomFill(rng);
-    if (maxComponentSize(colors) >= 2) return colors;
+    if (maxComponentSize(colors) >= PATH_MIN) return colors;
   }
   const colors = randomFill(rng);
-  forcePath3(colors);
+  forceMinPath(colors);
   return colors;
 }
 

@@ -16,8 +16,8 @@ Slidematch/
 ├── src/
 │   ├── main.ts
 │   ├── create-renderer.ts
-│   ├── game/               # config settings board mount
-│   ├── assets/             # 背景 / 框 / 格 / 五子 PNG
+│   ├── game/               # design config settings board mount path drop
+│   ├── assets/             # 框 / 浅格 / 五子 PNG / Inter
 │   ├── adapt/
 │   └── utils/haptics.ts
 ├── plugins/native-haptics/
@@ -39,11 +39,11 @@ Slidematch/
 
 | 项 | 值 |
 |----|-----|
-| `appId` | `com.example.portraitwebgpubase`（占位） |
+| `appId` | `com.slidematch.play` |
 | `webDir` | `dist` |
 | `ios.contentInset` | `never` |
 | `ios.scrollEnabled` | `false` |
-| `ios.backgroundColor` | `#0b1020` |
+| `ios.backgroundColor` | `#fdf1e7` |
 
 ### 设计尺寸
 
@@ -54,7 +54,7 @@ Slidematch/
 | Phone 预览 | 390×844 |
 | Pad 预览 | 768×1024（外层视口） |
 
-改设计尺寸时同步：`design.ts`、`style.css` 中 `#stage` 宽高、`index.html` 若有硬编码。
+舞台设计尺寸在 `src/adapt/design.ts`。盘面/棋子数字在 `src/game/design.ts`。改舞台时同步 `style.css` 的 `#stage` 宽高。
 
 ## 4. 适配算法
 
@@ -81,9 +81,10 @@ renderer.setSize(390, 844)          // 始终设计分辨率
 ## 6. WebGPU
 
 - `createRenderer` → `three/webgpu` WebGPURenderer，`alpha: true`，`NoToneMapping`  
-- `scene.background = null`，桌面背景走 CSS `#stage`  
+- `scene.background = null`，舞台底色走 CSS `#stage`（`#fdf1e7`）  
 - 无 `navigator.gpu` / init 失败 → `showFatal`  
-- DPR cap 默认 2  
+- 渲染器 DPR cap 默认 2；**棋子 DOM 位图**另按 `PIECE_DRAW.dprMax`（3）放大，见 [BOARD.md](./BOARD.md)  
+- 空闲停 WebGPU 循环（`needsTick`）  
 - 禁止 `setSize(innerWidth, innerHeight)` 跟窗走  
 
 ## 7. Haptics
@@ -123,7 +124,7 @@ npm run cap:sync
 3. Pad 预览禁止横向拉满 390 UI  
 4. pbxproj 优先 bootstrap，少手改  
 5. `dist` / `ios/.../public` 是产物  
-6. appId `com.example.*` 仅脚手架  
+6. appId 用 `com.slidematch.play`，不要改回脚手架 id  
 7. 震动没接上：先看 [HAPTICS.md §0](./HAPTICS.md)，不要只 `cap:sync`，不要用 `prepare()` 当验收  
 8. 棋盘坐标是 `#stage` 的 10.5 / 250.5，不要再套一层 safe padding  
 
@@ -131,5 +132,6 @@ npm run cap:sync
 
 | 日期 | 说明 |
 |------|------|
-| 2026-08-20 | 烘焙美术、视觉/逻辑盘分离、调参默认 380 盘；文档与代码对齐 |
+| 2026-08-21 | 规格冻结：6×6、≥2、LOOK/PIECE_DRAW；黏土五子 + 下投影；文档对齐 |
+| 2026-08-20 | 烘焙美术、视觉/逻辑盘分离、调参默认 380 盘 |
 | 2026-08-19 | 玩法文档落地；静盘阶段 A |

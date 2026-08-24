@@ -1,6 +1,23 @@
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../adapt/design';
 import { cellFromLocal, createFilledBoard } from './board';
-import { COLS, FRAME_SLICE, PIECE_SRC, ROWS } from './config';
+import {
+  COLS,
+  FRAME_SLICE,
+  CONVERT_COLOR,
+  ITEM_MIN,
+  NUKE_COLOR,
+  NUKE_MIN,
+  PATH_MIN,
+  PIECE_SRC,
+  ROWS,
+  STAGE,
+  clampPieceDpr,
+  isConvertColor,
+  isItemColor,
+  isNukeColor,
+  pieceDropShadowFilter,
+  pieceLayerTransform,
+} from './config';
 import {
   beginClear,
   CLEAR_SEC,
@@ -15,11 +32,11 @@ import { bindSwipeInput } from './input';
 import {
   beginPath,
   canCommit,
-  PATH_MIN,
   lastStep,
   PATH_TRACE_STEP,
   pointsAlongAimed,
   stepPathCrossing,
+  trimPath,
   type PathState,
 } from './path';
 import {
@@ -62,7 +79,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   const applyLayout = () => {
     layout = computeLayout(tune);
     const left = (DESIGN_WIDTH - layout.visualWidth) / 2;
-    const top = (DESIGN_HEIGHT - layout.visualHeight) / 2 + 13;
+    const top = (DESIGN_HEIGHT - layout.visualHeight) / 2 + STAGE.boardOffsetY;
 
     board.style.left = `${left}px`;
     board.style.top = `${top}px`;
@@ -96,14 +113,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     movers.style.width = `${layout.gridWidth}px`;
     movers.style.height = `${layout.gridHeight}px`;
 
-    for (const img of pieceEls.values()) {
-      img.style.width = `${layout.pieceW}px`;
-      img.style.height = `${layout.pieceH}px`;
-    }
-    for (const img of imgPool) {
-      img.style.width = `${layout.pieceW}px`;
-      img.style.height = `${layout.pieceH}px`;
-    }
+    for (const img of pieceEls.values()) setPieceBitmapSize(img);
+    for (const img of imgPool) setPieceBitmapSize(img);
     paintPieces();
   };
 
@@ -146,6 +157,15 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     imgPool.push(el);
   };
 
+  const pieceDpr = () => clampPieceDpr(window.devicePixelRatio || 1);
+
+  const setPieceBitmapSize = (el: HTMLImageElement) => {
+    const dpr = pieceDpr();
+    el.style.width = `${layout.pieceW * dpr}px`;
+    el.style.height = `${layout.pieceH * dpr}px`;
+    el.style.filter = pieceDropShadowFilter(dpr);
+  };
+
   const pieceLeft = (col: number) =>
     col * (layout.cellW + layout.spacing) + (layout.cellW - layout.pieceW) / 2;
   const pieceTop = (y: number) =>
@@ -161,15 +181,24 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       el.dataset.color = String(piece.color);
       el.src = PIECE_SRC[piece.color]!;
     }
-    el.style.width = `${layout.pieceW}px`;
-    el.style.height = `${layout.pieceH}px`;
+    setPieceBitmapSize(el);
     const t = piece.state === 'clearing' ? Math.min(1, piece.clearT / CLEAR_SEC) : 0;
     const fade = 1 - t;
     const x = pieceLeft(piece.col);
     const y = pieceTop(piece.visualY) + piece.offsetY;
     el.style.opacity = fade === 1 ? '' : String(fade);
-    el.style.transform = `translate3d(${x}px,${y}px,0) scale(${piece.scaleX * fade},${piece.scaleY * fade})`;
+    el.style.transform = pieceLayerTransform(
+      x,
+      y,
+      piece.scaleX * fade,
+      piece.scaleY * fade,
+      layout.pieceW,
+      layout.pieceH,
+      pieceDpr(),
+    );
     el.classList.toggle('is-clearing', piece.state === 'clearing');
+    el.classList.toggle('is-convert', isConvertColor(piece.color));
+    el.classList.toggle('is-nuke', isNukeColor(piece.color));
     return el;
   };
 
@@ -218,9 +247,20 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   };
 
   const finishStroke = () => {
-    if (path && canCommit(path) && stablePathCount(sim, path.cells, path.color) >= PATH_MIN) {
+    if (path && canCommit(path) && stablePathCount(sim, path.cells) >= PATH_MIN) {
       hud.textContent = String(path.cells.length);
-      beginClear(sim, path.cells);
+      const usedItem = path.cells.some((c) => isItemColor(colors[c.row]![c.col]!));
+      const usedNuke = path.cells.some((c) => isNukeColor(colors[c.row]![c.col]!));
+      const usedConvert = path.cells.some((c) => isConvertColor(colors[c.row]![c.col]!));
+      let spawnColor: number | null = null;
+      if (usedNuke) spawnColor = null;
+      else if (path.cells.length >= NUKE_MIN) spawnColor = NUKE_COLOR;
+      else if (!usedItem && path.cells.length >= ITEM_MIN) spawnColor = CONVERT_COLOR;
+      beginClear(sim, path.cells, {
+        extraColor: usedConvert && !usedNuke && path.color >= 0 ? path.color : undefined,
+        fullBoard: usedNuke && path.cells.length >= NUKE_MIN,
+        spawnColor,
+      });
       paintPath(null, false);
       paintPieces();
       ensureLoop();
@@ -257,11 +297,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     }
 
     if (path) {
-      while (path.cells.length) {
-        const tail = path.cells[path.cells.length - 1]!;
-        if (colors[tail.row]![tail.col] === path.color) break;
-        path.cells.pop();
-      }
+      path = trimPath(path, colors);
       if (!path.cells.length) path = null;
     }
 
@@ -306,7 +342,9 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       tickDrop(sim, dt, {
         stride: layout.cellH + layout.spacing,
         pieceH: layout.pieceH,
-        dropSpeed: tune.dropSpeed / 100,
+        dropV0: tune.dropV0,
+        dropAccel: tune.dropAccel,
+        dropVMax: tune.dropVMax,
       });
       colors = stableColors(sim);
       paintPieces();
@@ -371,8 +409,14 @@ function mountSettings(
     <label>格子透明度<span data-k="cellOpacity">${initial.cellOpacity}</span>
       <input type="range" data-k="cellOpacity" min="0" max="100" step="1" value="${initial.cellOpacity}" />
     </label>
-    <label>下落速度<span data-k="dropSpeed">${initial.dropSpeed}</span>
-      <input type="range" data-k="dropSpeed" min="30" max="200" step="5" value="${initial.dropSpeed}" />
+    <label>初速度<span data-k="dropV0">${initial.dropV0}</span>
+      <input type="range" data-k="dropV0" min="80" max="1400" step="20" value="${initial.dropV0}" />
+    </label>
+    <label>加速度<span data-k="dropAccel">${initial.dropAccel}</span>
+      <input type="range" data-k="dropAccel" min="200" max="5000" step="50" value="${initial.dropAccel}" />
+    </label>
+    <label>速度上限<span data-k="dropVMax">${initial.dropVMax}</span>
+      <input type="range" data-k="dropVMax" min="150" max="2500" step="25" value="${initial.dropVMax}" />
     </label>
     <label>Mask内缩<span data-k="maskInset">${initial.maskInset}</span>
       <input type="range" data-k="maskInset" min="0" max="48" step="1" value="${initial.maskInset}" />
@@ -425,7 +469,9 @@ function mountSettings(
     setVal('pieceSize', TUNE_DEFAULTS.pieceSize);
     setVal('cellSize', TUNE_DEFAULTS.cellSize);
     setVal('cellOpacity', TUNE_DEFAULTS.cellOpacity);
-    setVal('dropSpeed', TUNE_DEFAULTS.dropSpeed);
+    setVal('dropV0', TUNE_DEFAULTS.dropV0);
+    setVal('dropAccel', TUNE_DEFAULTS.dropAccel);
+    setVal('dropVMax', TUNE_DEFAULTS.dropVMax);
     setVal('maskInset', TUNE_DEFAULTS.maskInset);
     setVal('maskRadius', TUNE_DEFAULTS.maskRadius);
   });

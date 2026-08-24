@@ -5,7 +5,7 @@
 ## 一句话
 
 **TypeScript + Three.js WebGPU + Vite + Capacitor iOS**，设计空间 **390×844** contain letterbox。  
-玩法：9×9 滑动连同色，抬手消除。规范地图：[docs/SPEC.md](./docs/SPEC.md)。玩法 [DESIGN.md](./docs/DESIGN.md)；手感 [OPERATION.md](./docs/OPERATION.md)。
+玩法：**6×6** 滑动连同色，**四向**（只横竖），**≥2** 抬手消除；静止子可划。规范地图：[docs/SPEC.md](./docs/SPEC.md)。玩法 [DESIGN.md](./docs/DESIGN.md)；手感 [OPERATION.md](./docs/OPERATION.md)；数字 [src/game/design.ts](./src/game/design.ts)。
 
 ## 文档
 
@@ -14,11 +14,11 @@
 | [docs/SPEC.md](./docs/SPEC.md) | 规范地图（先读） |
 | [docs/HANDOFF.md](./docs/HANDOFF.md) | 窗口交接 |
 | [docs/DESIGN.md](./docs/DESIGN.md) | 玩法 |
-| [docs/BOARD.md](./docs/BOARD.md) | 逻辑 9×9 / 视觉框 / 素材 |
+| [docs/BOARD.md](./docs/BOARD.md) | 逻辑 6×6 / 视觉框 / 棋子绘制 / HUD |
 | [docs/SWIPE.md](./docs/SWIPE.md) | 可拐弯路径（摘要） |
 | [docs/OPERATION.md](./docs/OPERATION.md) | 操作手感（实现真源） |
 | [docs/SWIPE-RESEARCH.md](./docs/SWIPE-RESEARCH.md) | 滑动检索备忘（不覆盖规则） |
-| [docs/DROP.md](./docs/DROP.md) | 格子占坑、重力 |
+| [docs/DROP.md](./docs/DROP.md) | 占坑、初速/加速度/上限、稳定子可划 |
 | [docs/PLAN.md](./docs/PLAN.md) | 阶段 A–F |
 | [docs/SOURCES.md](./docs/SOURCES.md) | 对照工程与权威顺序 |
 | [docs/ENGINEERING.md](./docs/ENGINEERING.md) | 底座约定 |
@@ -31,6 +31,7 @@
 | 职责 | 文件 |
 |------|------|
 | Web 启动 | `index.html` → `src/main.ts` |
+| 产品设计数字 | `src/game/design.ts` |
 | 静盘 | `src/game/config.ts` · `settings.ts` · `board.ts` · `mount.ts` · `src/assets/` |
 | 设计舞台 | `src/adapt/design.ts` |
 | 设备预览 | `src/adapt/devicePreview.ts` |
@@ -49,6 +50,7 @@
   #ui-root        ← pointer-events:none
     #hud          ← 仅此处加 safe padding
     #game-board   ← 视觉框 + 逻辑格，pointer-events:auto
+    #settings-root
 #device-switcher  ← 仅桌面预览
 ```
 
@@ -64,7 +66,8 @@
 6. **Pad 只改外层视口**，不改 `DESIGN_*`  
 7. 改 Swift 改 `plugins/native-haptics/` 再 `ios:bootstrap`；不要用 JS `prepare()` 判断是否接上  
 8. **无 WebGPU 则明确失败**，不静默 WebGL  
-9. 盘内点中用浅格 **DOM rect**；追加路径见 [OPERATION.md](./docs/OPERATION.md)（尾格心→八向，禁止全盘最近格）  
+9. 盘内点中用浅格 **DOM rect**；追加路径见 [OPERATION.md](./docs/OPERATION.md)（尾格四邻过边/进格，禁止全盘最近格）  
+10. 视觉/规则/下落默认写在 `src/game/design.ts`（含 `PIECE_DRAW`、`LOOK.dropV0` / `dropAccel` / `dropVMax`），不要在 `mount.ts` 里另写一套数字  
 
 ## 命令
 
@@ -90,4 +93,4 @@ npm run ios
 
 - Android  
 - WebGL 静默回退  
-- 未定点的道具（见 DESIGN）  
+- 爆炸 / 全盘清道具（见 DESIGN）

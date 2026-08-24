@@ -14,6 +14,8 @@
   --design-h: 844;
   --shell-bg: #12141c;
   --stage-bg: #fdf1e7;
+  --ink: #8f5a3c;
+  --accent: #c47ee0;
 
   /* Desktop sim; native overrides with env() */
   --safe-top: 59px;
@@ -96,9 +98,8 @@ body {
   height: 844px;
   overflow: hidden;
   color-scheme: light;
-  background-color: #fdf1e7;
+  background-color: var(--stage-bg);
   background-image: none;
-  will-change: transform;
 }
 
 #stage canvas {
@@ -183,7 +184,7 @@ body.native-app #shell {
   margin-top: 4px;
   border: none;
   border-radius: 12px;
-  color: #8f5a3c;
+  color: var(--ink);
   background: rgba(253, 241, 231, 0.92);
   box-shadow: 0 3px 8px rgba(140, 100, 80, 0.22);
   display: grid;
@@ -196,7 +197,7 @@ body.native-app #shell {
   font-size: 15px;
   font-weight: 800;
   letter-spacing: 0.16em;
-  color: #c47ee0;
+  color: var(--accent);
   text-transform: uppercase;
   text-shadow: none;
 }
@@ -207,7 +208,7 @@ body.native-app #shell {
   font-size: 46px;
   font-weight: 800;
   letter-spacing: 0.02em;
-  color: #8f5a3c;
+  color: var(--ink);
   line-height: 0.95;
   text-shadow: none;
 }
@@ -261,12 +262,21 @@ body.native-app #shell {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--cell-w, 41px);
-  height: var(--cell-h, 41px);
+  width: var(--cell-w, 60px);
+  height: var(--cell-h, 72px);
 }
 
 .board-cell::before {
-  content: none;
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+  color-scheme: light;
+  background: url('./assets/cell.png') center / 100% 100% no-repeat;
+  box-shadow: none;
+  opacity: var(--cell-opacity, 1);
+  z-index: 0;
+  pointer-events: none;
 }
 
 .board-cell {
@@ -278,15 +288,17 @@ body.native-app #shell {
   left: 0;
   top: 0;
   z-index: 1;
-  width: var(--piece-w, 42px);
-  height: var(--piece-h, 50px);
+  width: var(--piece-w, 56px);
+  height: var(--piece-h, 67px);
   object-fit: contain;
   color-scheme: light;
   pointer-events: none;
   user-select: none;
-  transform-origin: 50% 100%;
-  border-radius: 22%;
-  box-shadow: 0 2px 3px rgba(90, 55, 80, 0.42);
+  transform-origin: 0 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  filter: drop-shadow(0 3px 1px rgba(90, 55, 80, 0.42));
   will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
@@ -325,8 +337,8 @@ body.native-app #shell {
   overflow: auto;
   padding: 14px 14px 12px;
   border-radius: 18px;
-  background: #fdf1e7;
-  color: #8f5a3c;
+  background: var(--stage-bg);
+  color: var(--ink);
   font-size: 12px;
   box-shadow: 0 8px 24px rgba(140, 100, 80, 0.28);
 }
@@ -342,7 +354,7 @@ body.native-app #shell {
   margin: 0;
   font-size: 14px;
   font-weight: 800;
-  color: #c47ee0;
+  color: var(--accent);
   letter-spacing: 0.1em;
 }
 
@@ -353,7 +365,7 @@ body.native-app #shell {
   border-radius: 10px;
   font-size: 18px;
   line-height: 1;
-  color: #8f5a3c;
+  color: var(--ink);
   background: #f3e4d4;
 }
 
@@ -381,7 +393,7 @@ body.native-app #shell {
   padding: 6px;
   font-size: 11px;
   font-weight: 700;
-  color: #8f5a3c;
+  color: var(--ink);
   background: #f3e4d4;
   border: none;
   border-radius: 10px;

@@ -1,6 +1,6 @@
-import { COLS, FRAME_SCALE, FRAME_SLICE, PIECE_SRC_H, PIECE_SRC_W, ROWS } from './config';
+import { COLS, FRAME_SCALE, FRAME_SLICE, LOOK, PIECE_ASPECT, ROWS } from './config';
 
-const KEY = 'slidematch.tune.v14';
+const KEY = 'slidematch.tune.v16';
 
 export type Tune = {
   visualWidth: number;
@@ -9,22 +9,15 @@ export type Tune = {
   pieceSize: number;
   cellSize: number;
   cellOpacity: number;
-  dropSpeed: number;
+  dropV0: number;
+  dropAccel: number;
+  dropVMax: number;
   maskInset: number;
   maskRadius: number;
 };
 
-export const TUNE_DEFAULTS: Tune = {
-  visualWidth: 380,
-  visualHeight: 455,
-  spacing: 0,
-  pieceSize: 65,
-  cellSize: 60,
-  cellOpacity: 100,
-  dropSpeed: 100,
-  maskInset: 7,
-  maskRadius: 5,
-};
+/** 与 `LOOK` 同一套默认；设置里「恢复默认」回到设计值。 */
+export const TUNE_DEFAULTS: Tune = { ...LOOK };
 
 export type BoardLayout = {
   visualWidth: number;
@@ -55,7 +48,9 @@ export function loadTune(): Tune {
       pieceSize: clamp(parsed.pieceSize ?? TUNE_DEFAULTS.pieceSize, 16, 128),
       cellSize: clamp(parsed.cellSize ?? TUNE_DEFAULTS.cellSize, 20, 128),
       cellOpacity: clamp(parsed.cellOpacity ?? TUNE_DEFAULTS.cellOpacity, 0, 100),
-      dropSpeed: clamp(parsed.dropSpeed ?? TUNE_DEFAULTS.dropSpeed, 30, 200),
+      dropV0: clamp(parsed.dropV0 ?? TUNE_DEFAULTS.dropV0, 80, 1400),
+      dropAccel: clamp(parsed.dropAccel ?? TUNE_DEFAULTS.dropAccel, 200, 5000),
+      dropVMax: clamp(parsed.dropVMax ?? TUNE_DEFAULTS.dropVMax, 150, 2500),
       maskInset: clamp(parsed.maskInset ?? TUNE_DEFAULTS.maskInset, 0, 48),
       maskRadius: clamp(parsed.maskRadius ?? TUNE_DEFAULTS.maskRadius, 0, 64),
     };
@@ -68,13 +63,12 @@ export function saveTune(tune: Tune): void {
   localStorage.setItem(KEY, JSON.stringify(tune));
 }
 
-/** 格子跟棋子同一长宽比（360×430）。棋子大小独立，不再被格子卡住。 */
+/** 格子/棋子同一长宽比。两个「大小」都指宽度。 */
 export function computeLayout(tune: Tune): BoardLayout {
-  const aspect = PIECE_SRC_H / PIECE_SRC_W;
   const cellW = tune.cellSize;
-  const cellH = tune.cellSize * aspect;
-  const pieceH = tune.pieceSize;
-  const pieceW = pieceH / aspect;
+  const cellH = tune.cellSize * PIECE_ASPECT;
+  const pieceW = tune.pieceSize;
+  const pieceH = tune.pieceSize * PIECE_ASPECT;
   const gridWidth = COLS * cellW + (COLS - 1) * tune.spacing;
   const gridHeight = ROWS * cellH + (ROWS - 1) * tune.spacing;
   return {

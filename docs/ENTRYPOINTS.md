@@ -17,9 +17,9 @@ index.html
   → style.css
   → main.ts
        → lockWebGestures / safeArea
-       → createRenderer(#stage)     透明，不挡背景图
+       → createRenderer(#stage)     透明，不挡舞台底色
        → mountDevicePreview → stage transform
-       → mountBoard(#ui-root)       视觉框 + 9×9 点心
+       → mountBoard(#ui-root)       视觉框 + 6×6 黏土棋子
 ```
 
 ## DOM
@@ -35,6 +35,9 @@ index.html
           #game-board
             .board-pad
             .board-cells
+            .board-mask
+              .board-movers
+          #settings-root
 #device-switcher / #device-label   (web only)
 ```
 
@@ -46,11 +49,13 @@ index.html
 
 | 要改 | 文件 |
 |------|------|
-| 视觉默认 / 调参 | `src/game/settings.ts`（面板 CSS 隐藏） |
+| 视觉/规则默认 | `src/game/design.ts`（`LOOK` / `PIECE_DRAW` / `RULES`） |
+| 调参覆盖 | `src/game/settings.ts`；HUD 齿轮 → `#settings-root` |
 | 素材 | `src/assets/` · [BOARD.md](./BOARD.md) |
 | 初盘 / 点中 | `src/game/board.ts` |
 | 盘 DOM | `src/game/mount.ts` · `style.css` |
 | 玩法规则 | [DESIGN.md](./DESIGN.md) |
+| 手感常数 | [OPERATION.md](./OPERATION.md) · `src/game/path.ts` |
 | base / 端口 | `vite.config.ts` |
 | appId | `capacitor.config.ts` |
 | 震动原生 | `plugins/native-haptics/` + bootstrap |

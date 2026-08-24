@@ -1,16 +1,16 @@
 import { inBounds, type Cell } from './board';
-import { COLOR_COUNT, COLS, ROWS } from './config';
+import { COLOR_COUNT, COLS, LOOK, ROWS } from './config';
 
-/** TripleMatch GameSettings / TechnicalImplementation 默认。 */
-export const DROP_V0 = 150;
-export const DROP_V_SPAWN = 100;
-export const DROP_G = 1700;
-export const DROP_V_MAX = 1500;
+/** 设计默认；运行时用设置里的 dropV0 / dropAccel / dropVMax。 */
+export const DROP_V0 = LOOK.dropV0;
+export const DROP_V_SPAWN = LOOK.dropV0;
+export const DROP_G = LOOK.dropAccel;
+export const DROP_V_MAX = LOOK.dropVMax;
 export const DROP_RELEASE = 0.22;
 export const DROP_SOFT_GAP = 0.85;
 export const DROP_SNAP_PX = 3;
 export const DROP_MOMENTUM = 0.05;
-/** 文档下落形变（GameSettings 现为 0；按 TechnicalImplementation 2.6）。 */
+/** 下落中形变。 */
 export const DROP_STRETCH_MAX = 0.08;
 export const DROP_SQUASH_MAX = 0.04;
 export const LAND_SPEED_TH = 250;
@@ -60,26 +60,32 @@ export type DropSim = {
   slots: Slot[][];
   pieces: Map<number, Piece>;
   time: number;
-  dropSpeed: number;
+  dropV0: number;
+  dropAccel: number;
+  dropVMax: number;
+  /** 消除动画结束后在该格放入道具。 */
+  pendingItem: { cell: Cell; color: number } | null;
 };
 
 export type DropMetrics = {
   stride: number;
   pieceH: number;
-  dropSpeed?: number;
+  dropV0?: number;
+  dropAccel?: number;
+  dropVMax?: number;
 };
 
 function dropG(sim: DropSim): number {
-  return DROP_G * sim.dropSpeed;
+  return sim.dropAccel;
 }
 function dropV0(sim: DropSim): number {
-  return DROP_V0 * sim.dropSpeed;
+  return sim.dropV0;
 }
 function dropVSpawn(sim: DropSim): number {
-  return DROP_V_SPAWN * sim.dropSpeed;
+  return sim.dropV0;
 }
 function dropVMax(sim: DropSim): number {
-  return DROP_V_MAX * sim.dropSpeed;
+  return Math.max(sim.dropV0, sim.dropVMax);
 }
 
 let nextId = 1;
@@ -168,7 +174,15 @@ export function createDropSim(colors: number[][]): DropSim {
       slots[row]![col]!.current = piece;
     }
   }
-  return { slots, pieces, time: 0, dropSpeed: 1 };
+  return {
+    slots,
+    pieces,
+    time: 0,
+    dropV0: DROP_V0,
+    dropAccel: DROP_G,
+    dropVMax: DROP_V_MAX,
+    pendingItem: null,
+  };
 }
 
 export function canReceiveDrop(sim: DropSim, row: number, col: number): boolean {
@@ -196,10 +210,10 @@ export function isCellStable(sim: DropSim, row: number, col: number, color?: num
   return true;
 }
 
-export function stablePathCount(sim: DropSim, cells: { row: number; col: number }[], color: number): number {
+export function stablePathCount(sim: DropSim, cells: { row: number; col: number }[]): number {
   let n = 0;
   for (const c of cells) {
-    if (isCellStable(sim, c.row, c.col, color)) n += 1;
+    if (isCellStable(sim, c.row, c.col)) n += 1;
   }
   return n;
 }
@@ -224,15 +238,56 @@ export function needsTick(sim: DropSim): boolean {
   return false;
 }
 
-export function beginClear(sim: DropSim, cells: Cell[]): void {
-  for (const cell of cells) {
-    if (!inBounds(cell)) continue;
-    const p = sim.slots[cell.row]![cell.col]!.current;
-    if (!p || p.state !== 'stable') continue;
-    p.state = 'clearing';
-    p.clearT = 0;
-    p.landActive = false;
-    p.vy = 0;
+function markClearing(sim: DropSim, cell: Cell): void {
+  if (!inBounds(cell)) return;
+  const p = sim.slots[cell.row]![cell.col]!.current;
+  if (!p || p.state !== 'stable') return;
+  p.state = 'clearing';
+  p.clearT = 0;
+  p.landActive = false;
+  p.vy = 0;
+}
+
+function placeItem(sim: DropSim, cell: Cell, color: number): boolean {
+  if (!inBounds(cell) || !canReceiveDrop(sim, cell.row, cell.col)) return false;
+  const piece = acquirePiece(color, cell.col, cell.row);
+  piece.state = 'stable';
+  sim.pieces.set(piece.id, piece);
+  sim.slots[cell.row]![cell.col]!.current = piece;
+  return true;
+}
+
+export type ClearOpts = {
+  extraColor?: number;
+  fullBoard?: boolean;
+  spawnColor?: number | null;
+};
+
+export function beginClear(sim: DropSim, cells: Cell[], opts: ClearOpts = {}): void {
+  const seen = new Set<string>();
+  const add = (cell: Cell) => {
+    const k = `${cell.row},${cell.col}`;
+    if (seen.has(k)) return;
+    seen.add(k);
+    markClearing(sim, cell);
+  };
+  for (const cell of cells) add(cell);
+  if (opts.fullBoard) {
+    for (let row = 0; row < ROWS; row++) {
+      for (let col = 0; col < COLS; col++) add({ row, col });
+    }
+  } else if (opts.extraColor !== undefined && opts.extraColor >= 0) {
+    const want = opts.extraColor;
+    for (let row = 0; row < ROWS; row++) {
+      for (let col = 0; col < COLS; col++) {
+        const p = sim.slots[row]![col]!.current;
+        if (p && p.state === 'stable' && p.color === want) add({ row, col });
+      }
+    }
+  }
+  if (opts.spawnColor != null && cells.length) {
+    const last = cells[cells.length - 1]!;
+    sim.pendingItem = { cell: { row: last.row, col: last.col }, color: opts.spawnColor };
   }
 }
 
@@ -454,11 +509,16 @@ function integrate(sim: DropSim, dt: number, metrics: DropMetrics): void {
     if (piece.state === 'stable') tickLanding(piece, dt);
   }
   for (let i = 0; i < recycleBuf.length; i++) recyclePiece(sim, recycleBuf[i]!);
+  if (sim.pendingItem) {
+    if (placeItem(sim, sim.pendingItem.cell, sim.pendingItem.color)) sim.pendingItem = null;
+  }
 }
 
 export function tickDrop(sim: DropSim, dt: number, metrics: DropMetrics): void {
   const step = Math.min(Math.max(dt, 0), 0.05);
-  sim.dropSpeed = metrics.dropSpeed ?? 1;
+  sim.dropV0 = metrics.dropV0 ?? DROP_V0;
+  sim.dropAccel = metrics.dropAccel ?? DROP_G;
+  sim.dropVMax = metrics.dropVMax ?? DROP_V_MAX;
   sim.time += step;
   scanStarts(sim);
   integrate(sim, step, metrics);
