@@ -49,7 +49,8 @@ index.html
 
 | 要改 | 文件 |
 |------|------|
-| 视觉/规则默认 | `src/game/design.ts`（`LOOK` / `PIECE_DRAW` / `RULES`） |
+| 视觉/规则默认 | `src/game/design.ts`（`LOOK` / `PIECE_DRAW` / `RULES` / `FEEL`） |
+| 选中/消除/变色反馈 | [FEEDBACK.md](./FEEDBACK.md) · `design.ts` `FEEL` · `clearFx.ts` |
 | 调参覆盖 | `src/game/settings.ts`；HUD 齿轮 → `#settings-root` |
 | 素材 | `src/assets/` · [BOARD.md](./BOARD.md) |
 | 道具生成/结算 | `src/game/items.ts` · [ITEMS.md](./ITEMS.md) |

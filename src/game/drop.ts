@@ -1,5 +1,5 @@
 import { inBounds, type Cell } from './board';
-import { COLOR_COUNT, COLS, LOOK, ROWS } from './config';
+import { COLOR_COUNT, COLS, FEEL, LOOK, ROWS } from './config';
 
 /** 设计默认；运行时用设置里的 dropV0 / dropAccel / dropVMax。 */
 export const DROP_V0 = LOOK.dropV0;
@@ -23,7 +23,7 @@ export const LAND_OVERSHOOT_MAX = 1;
 export const LAND_SQUASH_SEC = 0.055;
 export const LAND_BOUNCE_SEC = 0.085;
 export const LAND_SETTLE_SEC = 0.055;
-export const CLEAR_SEC = 0.16;
+export const CLEAR_SEC = FEEL.clear.sec;
 
 export type PieceState = 'stable' | 'dropping' | 'clearing' | 'spawning';
 
@@ -73,6 +73,7 @@ export type DropMetrics = {
   dropV0?: number;
   dropAccel?: number;
   dropVMax?: number;
+  onPieceCleared?: (piece: Piece) => void;
 };
 
 function dropG(sim: DropSim): number {
@@ -238,12 +239,12 @@ export function needsTick(sim: DropSim): boolean {
   return false;
 }
 
-function markClearing(sim: DropSim, cell: Cell): void {
+function markClearing(sim: DropSim, cell: Cell, delay = 0): void {
   if (!inBounds(cell)) return;
   const p = sim.slots[cell.row]![cell.col]!.current;
   if (!p || p.state !== 'stable') return;
   p.state = 'clearing';
-  p.clearT = 0;
+  p.clearT = -delay;
   p.landActive = false;
   p.vy = 0;
 }
@@ -272,7 +273,13 @@ export function beginClear(sim: DropSim, cells: Cell[], opts: ClearOpts = {}): v
   };
   for (const cell of cells) add(cell);
   if (opts.extraCells) {
-    for (const cell of opts.extraCells) add(cell);
+    const stagger = FEEL.clear.extraStagger;
+    opts.extraCells.forEach((cell, i) => {
+      const k = `${cell.row},${cell.col}`;
+      if (seen.has(k)) return;
+      seen.add(k);
+      markClearing(sim, cell, i * stagger);
+    });
   }
   if (opts.spawnColor != null && cells.length) {
     const last = cells[cells.length - 1]!;
@@ -438,7 +445,6 @@ function piecesBelow(sim: DropSim, piece: Piece): Piece[] {
   belowBuf.length = 0;
   for (const other of sim.pieces.values()) {
     if (other === piece || other.col !== piece.col) continue;
-    if (other.state === 'clearing') continue;
     if (other.visualY <= piece.visualY + 1e-6) continue;
     belowBuf.push(other);
   }
@@ -486,6 +492,7 @@ function integrate(sim: DropSim, dt: number, metrics: DropMetrics): void {
     if (piece.state === 'clearing') {
       piece.clearT += dt;
       if (piece.clearT >= CLEAR_SEC) {
+        metrics.onPieceCleared?.(piece);
         const row = Math.round(piece.visualY);
         if (row >= 0 && row < ROWS) {
           const slot = sim.slots[row]![piece.col]!;

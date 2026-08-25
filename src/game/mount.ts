@@ -1,6 +1,7 @@
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../adapt/design';
-import { cellFromLocal, createFilledBoard } from './board';
+import { cellFromLocal, createFilledBoard, type Cell } from './board';
 import {
+  clearMotion,
   COLS,
   FEEL,
   FRAME_SLICE,
@@ -25,12 +26,22 @@ import {
   tickDrop,
   type Piece,
 } from './drop';
+import { disposeClearFx, spawnClearBurst, tickClearFx } from './clearFx';
+
 import { bindSwipeInput } from './input';
-import { displayColor, resolveStroke } from './items';
+import { haptics } from '../utils/haptics';
+import {
+  displayColor,
+  extraClearCells,
+  pathUsesConvert,
+  resolveStroke,
+  type StrokeResolve,
+} from './items';
 import { commitStroke, createScoreRoll, linkPreview, setScoreTarget, strokeScore, tickScoreRoll } from './score';
 import {
   beginPath,
   canCommit,
+  cellKey,
   lastStep,
   PATH_TRACE_STEP,
   pointsAlongAimed,
@@ -88,6 +99,16 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   lifts.className = 'board-lifts';
   board.append(lifts);
 
+  const fxLayer = document.createElement('div');
+  fxLayer.className = 'board-fx';
+  board.append(fxLayer);
+
+  const convertCountEl = document.createElement('div');
+  convertCountEl.className = 'board-convert-count';
+  convertCountEl.hidden = true;
+  fxLayer.append(convertCountEl);
+
+
   const applyLayout = () => {
     layout = computeLayout(tune);
     const left = (DESIGN_WIDTH - layout.visualWidth) / 2;
@@ -130,6 +151,12 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     lifts.style.width = `${layout.gridWidth}px`;
     lifts.style.height = `${layout.gridHeight}px`;
 
+    fxLayer.style.left = `${layout.gridLeft}px`;
+    fxLayer.style.top = `${layout.gridTop}px`;
+    fxLayer.style.width = `${layout.gridWidth}px`;
+    fxLayer.style.height = `${layout.gridHeight}px`;
+
+
     for (const img of pieceEls.values()) setPieceBitmapSize(img);
     for (const img of imgPool) setPieceBitmapSize(img);
     paintPieces();
@@ -141,12 +168,16 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   const cellEls: HTMLDivElement[][] = [];
   const lastPath: HTMLDivElement[] = [];
   const pathKeys = new Set<string>();
+  const extraKeys = new Set<string>();
   const popT = new Map<number, number>();
   const popV = new Map<number, number>();
   const idleT = new Map<number, number>();
   const popOutFrom = new Map<number, number>();
   const popOutT = new Map<number, number>();
   const dimK = new Map<number, number>();
+  const extraGlow = new Map<number, number>();
+  const dipY = new Map<number, number>();
+  const dipV = new Map<number, number>();
 
   for (let row = 0; row < ROWS; row++) {
     const line: HTMLDivElement[] = [];
@@ -218,28 +249,43 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       el.src = PIECE_SRC[shown]!;
     }
     setPieceBitmapSize(el);
-    const t = piece.state === 'clearing' ? Math.min(1, piece.clearT / CLEAR_SEC) : 0;
-    const fade = 1 - t;
+    const clearU = piece.state === 'clearing' ? piece.clearT / CLEAR_SEC : -1;
+    const clear = piece.state === 'clearing' ? clearMotion(clearU) : null;
+    const fade = clear ? clear.opacity : 1;
     const x = pieceLeft(piece.col);
     const y = pieceTop(piece.visualY) + piece.offsetY;
     const dimAmt = dimK.get(piece.id) ?? 0;
-    const opacity = fade * (1 - dimAmt * (1 - FEEL.pressOtherOpacity));
+    const opacity = fade * (1 - dimAmt * (1 - FEEL.select.otherOpacity));
     el.style.opacity = opacity === 1 ? '' : String(opacity);
     const popK = popT.get(piece.id) ?? 0;
-    const popS = 1 + (FEEL.pressScale - 1) * popK;
+    const pieceRowEarly = piece.destRow ?? piece.sourceRow;
+    const convertSel =
+      !!pendingConvert && extraKeys.has(`${pieceRowEarly},${piece.col}`) && !pathKeys.has(`${pieceRowEarly},${piece.col}`);
+    const popS = 1 + (FEEL.select.scale - 1) * popK;
     const idle = idleT.get(piece.id) ?? 0;
     const vel = popV.get(piece.id) ?? 0;
     const settle = Math.max(0, 1 - (Math.abs(popK - 1) + Math.abs(vel) * 0.06) / 0.32);
     const bob =
-      FEEL.pressIdleLift * settle * Math.sin(idle * FEEL.pressIdleHz * Math.PI * 2 + piece.id * 0.9);
+      piece.state === 'clearing'
+        ? 0
+        : FEEL.select.idleLift * settle * Math.sin(idle * FEEL.select.idleHz * Math.PI * 2 + piece.id * 0.9);
+    const clearS = clear ? clear.scale : 1;
+    const clearLift = clear ? clear.lift : 0;
+    const wobble =
+      piece.state === 'clearing' || popOutT.has(piece.id)
+        ? 0
+        : vel * (convertSel ? FEEL.convert.wobble : FEEL.select.wobble) * (piece.id % 2 === 0 ? 1 : -1);
+    const dip = dipY.get(piece.id) ?? 0;
+    const liftY = FEEL.select.lift * Math.max(0, popK) + bob + clearLift - dip;
     el.style.transform = pieceLayerTransform(
       x,
-      y - FEEL.pressLift * Math.max(0, popK) - bob,
-      piece.scaleX * fade * popS,
-      piece.scaleY * fade * popS,
+      y - liftY,
+      piece.scaleX * popS * clearS,
+      piece.scaleY * popS * clearS,
       layout.pieceW,
       layout.pieceH,
       pieceDpr(),
+      wobble,
     );
     el.classList.toggle('is-clearing', piece.state === 'clearing');
     el.classList.toggle('is-convert', isConvertColor(piece.color) && !isMagicColor(shown));
@@ -251,8 +297,12 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const host = piece.visualY < -0.02 ? movers : lifts;
     if (el.parentElement !== host) host.append(el);
 
+    const pieceRow = piece.destRow ?? piece.sourceRow;
+    const onPath = pathKeys.has(`${pieceRow},${piece.col}`);
+    const markG = extraGlow.get(piece.id) ?? 0;
+    const glowAmt = clear ? clear.glow : onPath ? popK : markG;
     let glow = glowEls.get(piece.id);
-    const wantGlow = popK > 0.001 && piece.state !== 'clearing' && fade > 0.2;
+    const wantGlow = fade > 0.08 && glowAmt > 0.02;
     if (wantGlow) {
       if (!glow) {
         glow = acquireGlow();
@@ -264,7 +314,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       }
       setPieceBitmapSize(glow);
       glow.style.filter = 'none';
-      glow.style.opacity = String(FEEL.pressGlowOpacity * fade * popK);
+      const glowOp = onPath ? FEEL.select.glowOpacity : FEEL.convert.markGlow;
+      glow.style.opacity = String(glowOp * fade * glowAmt);
       glow.style.transform = el.style.transform;
       glow.style.zIndex = String(11 + z);
       if (glow.parentElement !== host) host.append(glow);
@@ -293,7 +344,46 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
 
   let path: PathState | null = null;
   let lastLocal: { x: number; y: number } | null = null;
+  let lastDipHover: string | null = null;
+  let convertPreview: Cell[] = [];
+  let pendingConvert: {
+    cells: Cell[];
+    settle: StrokeResolve;
+    queue: Cell[];
+    shown: number;
+    acc: number;
+    loc: { x: number; y: number };
+    holding: boolean;
+    convertAt: Cell | null;
+  } | null = null;
   applyLayout();
+
+  let convertCountOn = false;
+  const paintConvertCount = (n: number, loc: { x: number; y: number } | null) => {
+    if (n > 0 && loc) {
+      convertCountEl.textContent = String(n);
+      convertCountEl.style.left = `${loc.x}px`;
+      convertCountEl.style.top = `${loc.y - FEEL.convert.countLift}px`;
+      convertCountEl.hidden = false;
+      if (!convertCountOn) {
+        convertCountOn = true;
+        convertCountEl.classList.remove('is-out');
+        convertCountEl.classList.add('is-in');
+      }
+      return;
+    }
+    if (!convertCountOn) {
+      convertCountEl.hidden = true;
+      return;
+    }
+    convertCountOn = false;
+    convertCountEl.classList.remove('is-in');
+    convertCountEl.classList.add('is-out');
+  };
+  convertCountEl.addEventListener('transitionend', (ev) => {
+    if (ev.propertyName !== 'opacity' || convertCountOn) return;
+    convertCountEl.hidden = true;
+  });
 
   let raf = 0;
   let lastTs = 0;
@@ -316,6 +406,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     }
     lastPath.length = 0;
     pathKeys.clear();
+    extraKeys.clear();
     const magicLook = !!next?.magic;
     if (board.classList.contains('is-magic-look') !== magicLook) {
       board.classList.toggle('is-magic-look', magicLook);
@@ -330,24 +421,84 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         if (i === next.cells.length - 1) el.classList.add('is-path-tail');
         lastPath.push(el);
       });
+      convertPreview = extraClearCells(next, colors, convertPreview);
+      for (const cell of convertPreview) extraKeys.add(`${cell.row},${cell.col}`);
+    } else {
+      convertPreview = [];
+    }
+    if (!pendingConvert) {
+      const show =
+        next && pathUsesConvert(next, colors) ? next.cells.length : 0;
+      paintConvertCount(show, lastLocal);
     }
     paintPieces();
     ensureLoop();
   };
 
+  const hopConvert = () => {
+    const at = pendingConvert?.convertAt;
+    if (!at) return;
+    const piece = sim.slots[at.row]![at.col]!.current;
+    if (!piece || piece.state === 'clearing') return;
+    dipY.set(piece.id, dipY.get(piece.id) ?? 0);
+    dipV.set(piece.id, (dipV.get(piece.id) ?? 0) + FEEL.select.dipVel);
+  };
+
+  const pickConvertExtra = (cell: Cell) => {
+    extraKeys.add(`${cell.row},${cell.col}`);
+    hopConvert();
+  };
+
+  const commitClear = (cells: Cell[], settle: StrokeResolve) => {
+    beginClear(sim, cells, settle);
+    void haptics.impact('medium');
+    path = null;
+    lastLocal = null;
+    extraKeys.clear();
+    convertPreview = [];
+    pendingConvert = null;
+    lastDipHover = null;
+    paintConvertCount(0, null);
+    paintPath(null, false);
+    paintHud();
+    ensureLoop();
+  };
+
   const finishStroke = () => {
+    if (pendingConvert) return;
     if (path && canCommit(path) && stablePathCount(sim, path.cells) >= PATH_MIN) {
-      const settle = resolveStroke(path, colors);
+      const settle = resolveStroke(path, colors, convertPreview);
       commitStroke(scoreRoll, strokeScore(path, colors, settle));
-      beginClear(sim, path.cells, settle);
-      path = null;
-      lastLocal = null;
-      paintPath(null, false);
-      paintHud();
-      ensureLoop();
+      if (settle.extraCells.length && lastLocal) {
+        pendingConvert = {
+          cells: path.cells.map((c) => ({ row: c.row, col: c.col })),
+          settle,
+          queue: settle.extraCells.slice(),
+          shown: path.cells.length,
+          acc: 0,
+          loc: { x: lastLocal.x, y: lastLocal.y },
+          holding: false,
+          convertAt: path.cells.find((c) => {
+            const p = sim.slots[c.row]![c.col]!.current;
+            return !!p && isConvertColor(p.color);
+          }) ?? null,
+        };
+        extraKeys.clear();
+        lastDipHover = null;
+        paintConvertCount(pendingConvert.shown, pendingConvert.loc);
+        paintPieces();
+        paintHud();
+        ensureLoop();
+      } else {
+        commitClear(path.cells, settle);
+      }
     } else {
       path = null;
       lastLocal = null;
+      extraKeys.clear();
+      convertPreview = [];
+      lastDipHover = null;
+      paintConvertCount(0, null);
       paintPath(null, false);
       aimHud(scoreRoll.committed);
     }
@@ -368,14 +519,19 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
 
     colors = stableColors(sim);
 
+    if (pendingConvert) return;
+
     if (kind === 'down') {
       lastLocal = loc;
       const hit = cellFromLocal(loc.x, loc.y, layout);
       path = hit && colors[hit.row]![hit.col]! >= 0 ? beginPath(hit, colors) : null;
       paintPath(path, false);
+      lastDipHover = hit ? cellKey(hit) : null;
       aimHud(scoreRoll.committed + (path ? linkPreview(path.cells.length) : 0));
       return;
     }
+
+    const beforeSel = new Set<string>([...pathKeys, ...extraKeys]);
 
     if (path) {
       path = trimPath(path, colors);
@@ -403,14 +559,34 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       return;
     }
     paintPath(path, false);
+    const hover = cellFromLocal(loc.x, loc.y, layout);
+    if (hover) {
+      const k = cellKey(hover);
+      const selected = pathKeys.has(k) || extraKeys.has(k);
+      if (selected && lastDipHover !== k && beforeSel.has(k)) {
+        const piece = sim.slots[hover.row]![hover.col]!.current;
+        if (piece && piece.state === 'stable' && (popT.get(piece.id) ?? 0) > 0.45) {
+          dipY.set(piece.id, dipY.get(piece.id) ?? 0);
+          dipV.set(piece.id, (dipV.get(piece.id) ?? 0) + FEEL.select.dipVel);
+        }
+      }
+      lastDipHover = k;
+    } else {
+      lastDipHover = null;
+    }
     aimHud(scoreRoll.committed + (path ? linkPreview(path.cells.length) : 0));
   };
 
   const unbind = bindSwipeInput(board, {
     onSample,
     onTrueCancel: () => {
+      if (pendingConvert) return;
       path = null;
       lastLocal = null;
+      extraKeys.clear();
+      convertPreview = [];
+      lastDipHover = null;
+      paintConvertCount(0, null);
       paintPath(null, false);
       aimHud(scoreRoll.committed);
     },
@@ -424,6 +600,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         if (piece.state === 'clearing') continue;
         const pieceRow = piece.destRow ?? piece.sourceRow;
         if (pathKeys.has(`${pieceRow},${piece.col}`)) want.add(piece.id);
+        else if (pendingConvert && extraKeys.has(`${pieceRow},${piece.col}`)) want.add(piece.id);
       }
     }
     let busy = false;
@@ -431,14 +608,30 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     for (const id of want) ids.add(id);
     for (const id of ids) {
       const target = want.has(id) ? 1 : 0;
+      const live = sim.pieces.get(id);
+      if (live?.state === 'clearing') {
+        idleT.delete(id);
+        popOutFrom.delete(id);
+        popOutT.delete(id);
+        busy = true;
+        continue;
+      }
+      const extraPick =
+        !!pendingConvert &&
+        !!live &&
+        extraKeys.has(`${(live.destRow ?? live.sourceRow)},${live.col}`) &&
+        !pathKeys.has(`${(live.destRow ?? live.sourceRow)},${live.col}`);
       const fresh = !popT.has(id);
       let x = popT.get(id) ?? 0;
-      let vel = popV.get(id) ?? (fresh && target === 1 ? FEEL.pressPopVel : 0);
+      let vel =
+        popV.get(id) ?? (fresh && target === 1 ? (extraPick ? FEEL.convert.popVel : FEEL.select.popVel) : 0);
 
       if (target === 1) {
         popOutFrom.delete(id);
         popOutT.delete(id);
-        vel += ((1 - x) * FEEL.pressSpring - vel * FEEL.pressDamp) * step;
+        const spring = extraPick ? FEEL.convert.spring : FEEL.select.spring;
+        const damp = extraPick ? FEEL.convert.damp : FEEL.select.damp;
+        vel += ((1 - x) * spring - vel * damp) * step;
         x += vel * step;
         if (Math.abs(1 - x) < 0.003 && Math.abs(vel) < 0.03) {
           x = 1;
@@ -451,7 +644,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
           popOutFrom.set(id, x);
           popOutT.set(id, 0);
         }
-        const u = Math.min(1, (popOutT.get(id) ?? 0) + step / FEEL.pressOutSec);
+        const u = Math.min(1, (popOutT.get(id) ?? 0) + step / FEEL.select.outSec);
         popOutT.set(id, u);
         const ease = 1 - (1 - u) * (1 - u);
         x = (popOutFrom.get(id) ?? 0) * (1 - ease);
@@ -483,17 +676,40 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     return busy;
   };
 
+  const tickDip = (dt: number): boolean => {
+    const step = Math.min(dt, 1 / 30);
+    let busy = false;
+    const ids = new Set(dipY.keys());
+    for (const id of dipV.keys()) ids.add(id);
+    for (const id of ids) {
+      let y = dipY.get(id) ?? 0;
+      let vel = dipV.get(id) ?? 0;
+      vel += (-y * FEEL.select.dipSpring - vel * FEEL.select.dipDamp) * step;
+      y += vel * step;
+      if (Math.abs(y) < 0.12 && Math.abs(vel) < 1.5) {
+        dipY.delete(id);
+        dipV.delete(id);
+      } else {
+        dipY.set(id, y);
+        dipV.set(id, vel);
+        busy = true;
+      }
+    }
+    return busy;
+  };
+
   const pieceShouldDim = (piece: Piece): boolean => {
     if (!path || path.magic || piece.state === 'clearing') return false;
     const pieceRow = piece.destRow ?? piece.sourceRow;
     if (pathKeys.has(`${pieceRow},${piece.col}`)) return false;
+    if (extraKeys.has(`${pieceRow},${piece.col}`)) return false;
     if (path.color < 0) return true;
     if (isItemColor(piece.color)) return false;
     return piece.color !== path.color;
   };
 
   const tickDim = (dt: number): boolean => {
-    const rate = 1 / FEEL.pressDimSec;
+    const rate = 1 / FEEL.select.dimSec;
     const step = Math.min(dt, 1 / 30) * rate;
     let busy = false;
     const seen = new Set<number>();
@@ -517,13 +733,67 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     return busy;
   };
 
+  const tickExtraGlow = (dt: number): boolean => {
+    const rate = 1 / FEEL.convert.glowSec;
+    const step = Math.min(dt, 1 / 30) * rate;
+    let busy = false;
+    const seen = new Set<number>();
+    for (const piece of sim.pieces.values()) {
+      seen.add(piece.id);
+      const pieceRow = piece.destRow ?? piece.sourceRow;
+      const marked = convertPreview.some((c) => c.row === pieceRow && c.col === piece.col);
+      const target = marked && !pathKeys.has(`${pieceRow},${piece.col}`) ? 1 : 0;
+      let v = extraGlow.get(piece.id) ?? 0;
+      if (v < target) {
+        v = Math.min(target, v + step);
+        busy = true;
+      } else if (v > target) {
+        v = Math.max(target, v - step);
+        busy = true;
+      }
+      if (v <= 0) extraGlow.delete(piece.id);
+      else extraGlow.set(piece.id, v);
+    }
+    for (const id of extraGlow.keys()) {
+      if (!seen.has(id)) extraGlow.delete(id);
+    }
+    return busy;
+  };
+
   const loop = (ts: number) => {
     const dt = lastTs ? (ts - lastTs) / 1000 : 0;
     lastTs = ts;
     let keep = tickScoreRoll(scoreRoll, dt);
     if (keep) paintHud();
+    if (pendingConvert) {
+      pendingConvert.acc += dt;
+      const tick = FEEL.convert.tickSec;
+      while (pendingConvert.shown > 0 && pendingConvert.acc >= tick) {
+        pendingConvert.acc -= tick;
+        pendingConvert.shown -= 1;
+        const cell = pendingConvert.queue.shift();
+        if (cell) pickConvertExtra(cell);
+        paintConvertCount(pendingConvert.shown, pendingConvert.loc);
+      }
+      if (pendingConvert.shown <= 0) {
+        for (const cell of pendingConvert.queue) pickConvertExtra(cell);
+        pendingConvert.queue.length = 0;
+        if (!pendingConvert.holding) {
+          pendingConvert.holding = true;
+          pendingConvert.acc = 0;
+        }
+      }
+      if (pendingConvert.holding && pendingConvert.acc >= FEEL.convert.holdSec) {
+        const job = pendingConvert;
+        commitClear(job.cells, job.settle);
+      } else {
+        keep = true;
+      }
+    }
     const popping = tickPressPop(dt);
+    const dipping = tickDip(dt);
     const dimming = tickDim(dt);
+    const glowing = tickExtraGlow(dt);
     const dropping = needsTick(sim);
     if (dropping) {
       tickDrop(sim, dt, {
@@ -532,13 +802,29 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         dropV0: tune.dropV0,
         dropAccel: tune.dropAccel,
         dropVMax: tune.dropVMax,
+        onPieceCleared: (piece) => {
+          const shown = displayColor(piece.color, board.classList.contains('is-magic-look'));
+          const popK = popT.get(piece.id) ?? 0;
+          const clear = clearMotion(1);
+          spawnClearBurst(
+            fxLayer,
+            pieceLeft(piece.col) + layout.pieceW / 2,
+            pieceTop(piece.visualY) +
+              piece.offsetY -
+              FEEL.select.lift * Math.max(0, popK) -
+              clear.lift +
+              layout.pieceH / 2,
+            shown,
+          );
+        },
       });
       colors = stableColors(sim);
     }
-    if (dropping || popping || dimming) {
+    if (dropping || popping || dimming || dipping || glowing) {
       paintPieces();
       keep = true;
     }
+    if (tickClearFx(dt)) keep = true;
     if (keep) {
       raf = requestAnimationFrame(loop);
       return;
@@ -563,6 +849,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   return {
     dispose: () => {
       cancelAnimationFrame(raf);
+      disposeClearFx();
       unbind();
       board.remove();
       settings.remove();

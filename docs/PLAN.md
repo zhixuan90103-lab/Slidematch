@@ -1,6 +1,6 @@
 # 实施计划
 
-权威：[DESIGN.md](./DESIGN.md) · [BOARD.md](./BOARD.md) · [SWIPE.md](./SWIPE.md) · [DROP.md](./DROP.md) · `src/game/design.ts`
+权威：[DESIGN.md](./DESIGN.md) · [ITEMS.md](./ITEMS.md) · [FEEDBACK.md](./FEEDBACK.md) · [BOARD.md](./BOARD.md) · [SWIPE.md](./SWIPE.md) · [DROP.md](./DROP.md) · `src/game/design.ts`
 
 | 阶段 | 结果 | 状态 |
 |------|------|------|
@@ -8,7 +8,7 @@
 | B | 四向可拐弯划、回退、&lt;2 取消 | **已做** |
 | C | 抬手消、占坑下落、顶补、静止子可划；运动初速/加速度/上限 | **已做** |
 | D | 长度 6/8/10 档视+震，封顶 | 未做 |
-| E | 道具 | **变色子 + 魔法子已做**；按钮式全盘清不做 |
+| E | 道具 | **变色子 + 魔法子已做**（表现见 FEEDBACK）；按钮式全盘清不做 |
 | F | 分数公式 | **已做**（连格小额预览、抬手 n² 倍率、HUD 滚动） |
 
 ## 阶段 A 已落地

@@ -47,29 +47,82 @@ export const LOOK = {
   maskRadius: 5,
 } as const;
 
-/** 按下反馈。不进设置调参。 */
+/** 反馈数字。语义见 docs/FEEDBACK.md。不进设置调参。 */
 export const FEEL = {
-  pressOtherOpacity: 0.5,
-  pressGlowOpacity: 0.1,
-  /** 路径子放大倍数（相对 1）。 */
-  pressScale: 1.05,
-  /** 路径子上浮（设计像素，Y 向上）。 */
-  pressLift: 6,
-  /** 放大/上浮弹簧：刚度。 */
-  pressSpring: 480,
-  /** 放大/上浮弹簧：阻尼。越小越弹。 */
-  pressDamp: 12,
-  /** 入队时初速度，让过冲更明显。 */
-  pressPopVel: 7.5,
-  /** 取消选择：大小+上浮归位时长（秒）。 */
-  pressOutSec: 0.15,
-  /** 其它色透明度过渡（秒）。 */
-  pressDimSec: 0.08,
-  /** 待机：上下起伏（设计像素）。 */
-  pressIdleLift: 0.3,
-  /** 待机：起伏频率（Hz）。 */
-  pressIdleHz: 0.85,
+  select: {
+    otherOpacity: 0.5,
+    glowOpacity: 0.18,
+    scale: 1.05,
+    lift: 6,
+    spring: 480,
+    damp: 12,
+    popVel: 7.5,
+    wobble: 0.28,
+    dipVel: 90,
+    dipSpring: 520,
+    dipDamp: 14,
+    outSec: 0.15,
+    dimSec: 0.08,
+    idleLift: 0.3,
+    idleHz: 0.85,
+  },
+  clear: {
+    sec: 0.15,
+    liftEnd: 10,
+    extraStagger: 0,
+  },
+  convert: {
+    tickSec: 0.07,
+    countLift: 36,
+    glowSec: 0.16,
+    holdSec: 0.5,
+    /** 散消标记 Additive 透明度。 */
+    markGlow: 0.14,
+    /** 松手选中散子：停住与路径相同，过冲更大。 */
+    popVel: 16,
+    spring: 340,
+    damp: 8,
+    wobble: 0.42,
+  },
+  fx: {
+    countMin: 3,
+    countMax: 5,
+    life: 0.75,
+    speed: 90,
+    gravity: 980,
+    size: 8,
+    sizeJitter: 0.4,
+    emitR: 16,
+  },
 } as const;
+
+/** 碎屑颜色与棋子主体一致：0 水滴 1 叶 2 太阳 5 变色 6 魔法。 */
+export const PIECE_FX_COLOR = [
+  '#62b4f2',
+  '#8ed65e',
+  '#f4b03a',
+  '#e88aaa',
+  '#b08ae0',
+  '#f0c0d4',
+  '#f0c44a',
+] as const;
+
+export function clearMotion(u: number): {
+  scale: number;
+  lift: number;
+  opacity: number;
+  glow: number;
+} {
+  if (u <= 0) return { scale: 1, lift: 0, opacity: 1, glow: 1 };
+  const t = Math.min(1, u);
+  const k = t * t;
+  return {
+    scale: 1 - k,
+    lift: FEEL.clear.liftEnd * k,
+    opacity: 1,
+    glow: 1.8 * (1 - k),
+  };
+}
 
 export const RULES = {
   /** 抬手有效路径最短长度。 */

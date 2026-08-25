@@ -14,6 +14,7 @@
 1. `docs/SPEC.md` — 规范地图 + 当前规格  
 2. `docs/DESIGN.md` — 玩法已拍板  
 3. `docs/ITEMS.md` — 道具生成与结算  
+3b. `docs/FEEDBACK.md` — 基础选中 / 消除 / 变色表现  
 4. `docs/BOARD.md` — 盘面 / 棋子绘制  
 5. `docs/OPERATION.md` — 滑动手感（不要改回「谁近加谁」）  
 6. `docs/DROP.md` — 占坑 / 0.22 / 初速·加速度·上限 / 稳定子可划  
@@ -21,7 +22,7 @@
 
 ## 新窗口第一句（可粘贴）
 
-继续 SlideMatch。先读 `docs/SPEC.md`（含当前规格）、`DESIGN.md`、`ITEMS.md`、`BOARD.md`、`OPERATION.md`、`DROP.md`。阶段 A–C–E–F 已完成（6×6、≥2、四向、静止子可划、道具、累计分）。下落：占坑 0.22；运动三条默认初速 600、加速度 1400、上限 1600（设置可改）。道具见 ITEMS；分数见 DESIGN / `score.ts`。视觉与下落数字只改 `src/game/design.ts`。下一刀阶段 D：路径长度 6/8/10 档视+震。按钮式全盘清 / 排行榜不要做。
+继续 SlideMatch。先读 `docs/SPEC.md`、`DESIGN.md`、`ITEMS.md`、`FEEDBACK.md`、`BOARD.md`、`OPERATION.md`、`DROP.md`。阶段 A–C–E–F 已完成。基础选中/消除/变色表现见 FEEDBACK。下落占坑 0.22；运动 600 / 1400 / 1600。视觉与反馈数字只改 `src/game/design.ts` 的 `LOOK` / `FEEL`。下一刀阶段 D：路径长度 6/8/10 档视+震。按钮式全盘清 / 排行榜不要做。
 
 ## 阶段
 

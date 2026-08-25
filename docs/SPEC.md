@@ -6,13 +6,14 @@
 |---|------|--------|----------|
 | 1 | [AGENTS.md](../AGENTS.md) | 底座硬性：390×844、`base: './'`、DOM、无 WebGL 回退、iOS Safe Area | 玩法细节 |
 | 2 | [DESIGN.md](./DESIGN.md) | 玩法：6×6、三色、四向、≥2、仅抬手消、静止子可划、无落地自动三消 | 像素、插值、轴滞回、道具细则 |
-| 3 | [ITEMS.md](./ITEMS.md) | 道具：生成、转化、变色散消、魔法本划全同色 | 手感、下落公式 |
-| 4 | [OPERATION.md](./OPERATION.md) | **操作手感**：点中、插值、加格、减格、常数、验收 | 消子、下落、分数 |
-| 5 | [BOARD.md](./BOARD.md) | 视觉框 / 浅格 / 棋子绘制 / HUD / 素材 | 路径算法 |
-| 6 | [DROP.md](./DROP.md) | 占坑、重力、0.22、稳定子可划、初速/加速度/上限 | 滑动输入 |
-| 7 | [SWIPE.md](./SWIPE.md) | 路径规则摘要 | 手感实现（让 4） |
+| 3 | [ITEMS.md](./ITEMS.md) | 道具：生成、转化、变色散消、魔法本划全同色 | 手感、下落公式、反馈像素 |
+| 4 | [FEEDBACK.md](./FEEDBACK.md) | 基础选中 / 基础消除 / 变色气泡与标记 | 点中尺子、散消名单算法 |
+| 5 | [OPERATION.md](./OPERATION.md) | **操作手感**：点中、插值、加格、减格、常数、验收 | 消子、下落、分数 |
+| 6 | [BOARD.md](./BOARD.md) | 视觉框 / 浅格 / 棋子绘制 / HUD / 素材 | 路径算法 |
+| 7 | [DROP.md](./DROP.md) | 占坑、重力、0.22、稳定子可划、初速/加速度/上限 | 滑动输入 |
+| 8 | [SWIPE.md](./SWIPE.md) | 路径规则摘要 | 手感实现（让 5） |
 
-运行时数字：`src/game/design.ts`（`LOOK` / `ART` / `GRID` / `RULES` / `PIECE_DRAW`）。与 2、3、5、6 冲突时先改文档再改该文件。  
+运行时数字：`src/game/design.ts`（`LOOK` / `ART` / `GRID` / `RULES` / `PIECE_DRAW` / `FEEL`）。与 2、3、4、6、7 冲突时先改文档再改该文件。  
 备忘、不当局：[SWIPE-RESEARCH.md](./SWIPE-RESEARCH.md)、[PLAN.md](./PLAN.md)、[HANDOFF.md](./HANDOFF.md)、[SOURCES.md](./SOURCES.md)。
 
 ## 当前规格（已冻结）
@@ -28,7 +29,7 @@
 | 棋子 | 360×430 RGBA **实心黏土牌**（仅四角透明）；禁止 CSS 圆角裁切与矩形 `box-shadow` |
 | 棋子投影 | `drop-shadow(0 3px 1px)` 下投影，贴 Alpha；位图 ×DPR（上限 3） |
 | 道具 | 纯普通子 ≥5 出变色子、≥10 出魔法子；路上已有道具则不出。细则 [ITEMS.md](./ITEMS.md) |
-| 变色子 | `piece-convert.png`；划过可换色；抬手再散消 N 颗锁定色（N=路径长，落单优先） |
+| 变色子 | `piece-convert.png`；划过可换色；滑动中 Additive 标散子；气泡显示划线格数；松手倒数选中后再消。细则 [ITEMS.md](./ITEMS.md) · [FEEDBACK.md](./FEEDBACK.md) |
 | 魔法子 | `piece-magic.png`；本划全同色；全盘改画该贴图（无滤镜）；抬手只消路径；划满盘 = 清屏 |
 | HUD | 居中 **SCORE**：连格 +1/格预览；抬手滚到「n²×倍率后个位四舍五入」的累计 |
 | iOS | `com.slidematch.play` / SlideMatch |

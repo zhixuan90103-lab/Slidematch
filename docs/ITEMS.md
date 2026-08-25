@@ -1,6 +1,6 @@
 # 道具
 
-玩法定位见 [DESIGN.md](./DESIGN.md)。数字：`src/game/design.ts` 的 `RULES`。实现：`src/game/items.ts`。手感不在本文（让 [OPERATION.md](./OPERATION.md)）。分数倍率见 DESIGN，消除格数含本文散消。
+玩法定位见 [DESIGN.md](./DESIGN.md)。数字：`src/game/design.ts` 的 `RULES`。实现：`src/game/items.ts`。手感让 [OPERATION.md](./OPERATION.md)。**表现**让 [FEEDBACK.md](./FEEDBACK.md)。分数倍率见 DESIGN，消除格数含本文散消。
 
 目的：**让玩家能连更长**。变色按路径长度清散子（不是整色清场）；魔法让本划忽略颜色。不做按钮式全盘清。
 
@@ -17,6 +17,7 @@
 
 - 划入合法。过它之后下一格可换普通色（`flex`）。
 - 从道具起划：锁定色未定，第一颗普通子锁定颜色。
+- **变色散消滑动中不浮起散子，用 Additive 发亮标记。** 手指上方气泡显示已划格数；松手后数字逐个减，每减 1 选中 1 颗散子，再与路径一起消。
 
 **魔法额外：** `path.magic`。任意非空格可续连。只换贴图（`displayColor` → 色号 6），不改逻辑色、不加滤镜。退回不含魔法 / 抬手 / 取消：去掉 `#game-board.is-magic-look`。
 
@@ -26,7 +27,7 @@ stable 格 ≥ `pathMin` 才结算。滑动中不消、不出道具。
 
 ```
 含魔法     → 只消路径（变色散消不做）。36 格全在路径里 = 清屏
-仅含变色   → 消路径 + extraClearCells（见下）
+仅含变色   → 松手数完 extraClearCells 再与路径一起消
 无道具     → 只消路径
 ```
 
@@ -36,8 +37,9 @@ stable 格 ≥ `pathMin` 才结算。滑动中不消、不出道具。
 
 1. 锁定色 = `path.color`（&lt; 0 则无散消）。
 2. 候选 = 盘上该色、且不在路径上的格。路径视为已空。
-3. **落单**：四邻没有「非路径、同锁定色」。落单全部排在成团之前；同档按行、再按列。
-4. 取前 **N** 颗，N = `path.cells.length`。不够则有多少算多少。
+3. **不选已在路径上的格。** 名额 **N = 路径长**，盘上够同色就尽量打满 N 个点。
+4. 已选中的散消格只要没划进去就尽量保留（路径贴近也不立刻取消，避免滑着数量变少）。
+5. 新名额：落单 → 不贴路径的团（近的先）→ 不够才用贴路径的同色。回退时先摘离路径远的团。
 
 不再清光该色剩余。
 
@@ -60,7 +62,7 @@ stable 格 ≥ `pathMin` 才结算。滑动中不消、不出道具。
 |------|------|
 | `src/game/items.ts` | 生成、散消、显示色、`resolveStroke` |
 | `src/game/path.ts` | 四邻加/减；`canLinkColor` / `applyLinkColor` |
-| `src/game/mount.ts` | 抬手一次 resolve；魔法贴图 class |
+| `src/game/mount.ts` | 抬手一次 resolve；变色气泡/标记；魔法贴图 class |
 | `src/game/drop.ts` | 消格 + `pendingItem`；不解释道具 |
 | `src/game/score.ts` | n = 路径 + extraCells；倍率 |
 | `src/game/design.ts` | `itemMin` / `magicMin` / 色号 |
