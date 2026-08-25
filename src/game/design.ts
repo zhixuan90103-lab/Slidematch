@@ -106,7 +106,7 @@ export const FEEL = {
     spawnLead: 0.1,
     /** 最后一颗开始飞后再过这么久，路径格一起腾格。 */
     vacateSec: 0.12,
-    overshoot: 2.9,
+    overshoot: 5,
     popLift: 8,
     /** 回原位后的位移过冲（px）。 */
     popLand: 6,
@@ -184,6 +184,14 @@ export function gatherMotion(u: number): {
     opacity: 1,
     glow: 1.8 * (1 - t),
   };
+}
+
+/** 弹出缩放 `base` 达到最大的归一化时间（过冲顶点）。与 `itemPopMotion` 同一条三次曲线。 */
+export function itemPopPeakU(amp = 1): number {
+  const a = Math.max(1, amp);
+  const c3 = FEEL.synth.overshoot * a;
+  const c1 = c3 + 1;
+  return 1 - (2 * c3) / (3 * c1);
 }
 
 /** 过冲放大后原地晃：指数衰减，结束时幅度接近 0。 */

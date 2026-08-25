@@ -5,7 +5,7 @@
 ## 一句话
 
 **TypeScript + Three.js WebGPU + Vite + Capacitor iOS**，设计空间 **390×844** contain letterbox。  
-玩法：**6×6** 滑动连同色，**四向**（只横竖），**≥2** 抬手消除；静止子可划。规范地图：[docs/SPEC.md](./docs/SPEC.md)。玩法 [DESIGN.md](./docs/DESIGN.md)；道具 [ITEMS.md](./docs/ITEMS.md)；手感 [OPERATION.md](./docs/OPERATION.md)；数字 [src/game/design.ts](./src/game/design.ts)。
+玩法：**6×6** 滑动连同色，**四向**（只横竖），**≥2** 抬手消除；静止子可划。规范地图：[docs/SPEC.md](./docs/SPEC.md)。玩法 [DESIGN.md](./docs/DESIGN.md)；道具 [ITEMS.md](./docs/ITEMS.md)；反馈 [FEEDBACK.md](./docs/FEEDBACK.md)；手感 [OPERATION.md](./docs/OPERATION.md)；数字 [src/game/design.ts](./src/game/design.ts)（`LOOK` / `RULES` / `FEEL`）。
 
 ## 文档
 
@@ -33,9 +33,10 @@
 | 职责 | 文件 |
 |------|------|
 | Web 启动 | `index.html` → `src/main.ts` |
-| 产品设计数字 | `src/game/design.ts` |
+| 产品设计数字 | `src/game/design.ts`（`LOOK` / `RULES` / `FEEL` / `PIECE_DRAW`） |
 | 道具规则 | `src/game/items.ts` |
 | 分数 | `src/game/score.ts` |
+| 消除碎屑 | `src/game/clearFx.ts` |
 | 静盘 | `src/game/config.ts` · `settings.ts` · `board.ts` · `mount.ts` · `src/assets/` |
 | 设计舞台 | `src/adapt/design.ts` |
 | 设备预览 | `src/adapt/devicePreview.ts` |
@@ -53,7 +54,7 @@
   canvas          ← WebGPU，pointer-events:none
   #ui-root        ← pointer-events:none
     #hud          ← 仅此处加 safe padding
-    #game-board   ← 视觉框 + 逻辑格，pointer-events:auto
+    #game-board   ← 视觉框 + 逻辑格，pointer-events:auto（含 .board-lifts）
     #settings-root
 #device-switcher  ← 仅桌面预览
 ```
@@ -71,7 +72,7 @@
 7. 改 Swift 改 `plugins/native-haptics/` 再 `ios:bootstrap`；不要用 JS `prepare()` 判断是否接上  
 8. **无 WebGPU 则明确失败**，不静默 WebGL  
 9. 盘内点中用浅格 **DOM rect**；追加路径见 [OPERATION.md](./docs/OPERATION.md)（尾格四邻过边/进格，禁止全盘最近格）  
-10. 视觉/规则/下落默认写在 `src/game/design.ts`（含 `PIECE_DRAW`、`LOOK.dropV0` / `dropAccel` / `dropVMax`），不要在 `mount.ts` 里另写一套数字  
+10. 视觉/规则/下落/反馈默认写在 `src/game/design.ts`（`LOOK` / `RULES` / `FEEL` / `PIECE_DRAW`），不要在 `mount.ts` 里另写一套数字  
 
 ## 命令
 

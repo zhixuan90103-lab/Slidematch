@@ -17,7 +17,7 @@ Slidematch/
 │   ├── main.ts
 │   ├── create-renderer.ts
 │   ├── game/               # design config settings board mount path drop
-│   ├── assets/             # 框 / 浅格 / 五子 PNG / Inter
+│   ├── assets/             # 框 / 浅格 / 黏土牌 PNG / Inter
 │   ├── adapt/
 │   └── utils/haptics.ts
 ├── plugins/native-haptics/
@@ -132,6 +132,6 @@ npm run cap:sync
 
 | 日期 | 说明 |
 |------|------|
-| 2026-08-21 | 规格冻结：6×6、≥2、LOOK/PIECE_DRAW；黏土五子 + 下投影；文档对齐 |
+| 2026-08-21 | 规格冻结：6×6、≥2、LOOK/PIECE_DRAW；黏土牌 + 下投影；文档对齐 |
 | 2026-08-20 | 烘焙美术、视觉/逻辑盘分离、调参默认 380 盘 |
 | 2026-08-19 | 玩法文档落地；静盘阶段 A |

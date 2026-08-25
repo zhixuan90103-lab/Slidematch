@@ -6,6 +6,7 @@ import {
   FEEL,
   gatherMotion,
   itemPopMotion,
+  convertPopYawSrc,
   FRAME_SLICE,
   PATH_MIN,
   PIECE_SRC,
@@ -222,6 +223,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     el.style.filter = '';
     el.style.zIndex = '';
     el.style.transform = 'translate3d(-9999px,0,0)';
+    el.dataset.color = '';
+    el.dataset.src = '';
     imgPool.push(el);
   };
 
@@ -246,10 +249,20 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       pieceEls.set(piece.id, el);
     }
     const shown = displayColor(piece.color, board.classList.contains('is-magic-look'));
-    if (el.dataset.color !== String(shown)) {
-      el.dataset.color = String(shown);
-      el.src = PIECE_SRC[shown]!;
+    const poppingIn = piece.itemPopSec > 0 && piece.itemPopT < piece.itemPopSec;
+    const popU = piece.itemPopSec > 0 ? piece.itemPopT / piece.itemPopSec : 1;
+    const popIn =
+      piece.itemPopSec > 0 ? itemPopMotion(popU, piece.itemPopAmp) : null;
+    const yawSrc =
+      poppingIn && isConvertColor(piece.color) && !isMagicColor(shown)
+        ? convertPopYawSrc(popU, piece.itemPopAmp)
+        : null;
+    const src = yawSrc ?? PIECE_SRC[shown]!;
+    if (el.dataset.src !== src) {
+      el.dataset.src = src;
+      el.src = src;
     }
+    el.dataset.color = String(shown);
     setPieceBitmapSize(el);
     const gather = piece.state === 'clearing' && piece.flySec > 0;
     const clearDur = gather ? piece.flySec : CLEAR_SEC;
@@ -275,9 +288,6 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const idle = idleT.get(piece.id) ?? 0;
     const vel = popV.get(piece.id) ?? 0;
     const settle = Math.max(0, 1 - (Math.abs(popK - 1) + Math.abs(vel) * 0.06) / 0.32);
-    const poppingIn = piece.itemPopSec > 0 && piece.itemPopT < piece.itemPopSec;
-    const popIn =
-      piece.itemPopSec > 0 ? itemPopMotion(piece.itemPopT / piece.itemPopSec, piece.itemPopAmp) : null;
     const bob =
       piece.state === 'clearing' || poppingIn
         ? 0
@@ -328,10 +338,11 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         glow = acquireGlow();
         glowEls.set(piece.id, glow);
       }
-      if (glow.dataset.color !== String(shown)) {
-        glow.dataset.color = String(shown);
-        glow.src = PIECE_SRC[shown]!;
+      if (glow.dataset.src !== src) {
+        glow.dataset.src = src;
+        glow.src = src;
       }
+      glow.dataset.color = String(shown);
       setPieceBitmapSize(glow);
       glow.style.filter = 'none';
       const glowOp = onPath ? FEEL.select.glowOpacity : FEEL.convert.markGlow;

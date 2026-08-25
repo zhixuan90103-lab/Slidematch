@@ -21,7 +21,7 @@
 
 数字真源：`src/game/design.ts` 的 `PIECE_DRAW`。
 
-- 五子 PNG 是 **实心黏土圆角牌 + 图标**，只有四角全透明，不是镂空剪影。
+- 棋子 PNG 是 **实心黏土圆角牌 + 图标**，只有四角全透明，不是镂空剪影。
 - 用 `<img>` 直出，`object-fit: contain`，`background: none`。
 - **禁止** CSS `border-radius` 裁图（圆角只信素材 Alpha）。
 - **禁止** 棋子 `box-shadow`（矩形影会垫在透明角下面）。
@@ -56,13 +56,17 @@
 | `piece-drop.png` | 蓝水滴 | 360×430 透明底 |
 | `piece-leaf.png` | 绿叶 | 360×430 透明底 |
 | `piece-sun.png` | 橙太阳 | 360×430 透明底 |
-| `piece-heart.png` | 粉心 | 360×430 透明底 |
-| `piece-star.png` | 紫星 | 360×430 透明底 |
-| `piece-convert.png` | 变色子（彩虹漩涡糖） | 360×430 透明底 |
+| `piece-heart.png` | 粉心（包内有，盘面不用） | 360×430 透明底 |
+| `piece-star.png` | 紫星（包内有，盘面不用） | 360×430 透明底 |
+| `piece-convert.png` | 变色子静图（彩虹漩涡糖） | 360×430 透明底 |
+| `fx-preview/yaw-2d/convert/` | 变色子弹出放大阶段 yaw（00–06、19–23） | 480×438；峰值后切回静图 |
 | `piece-magic.png` | 魔法子（金币） | 360×430 透明底 |
+| `coin.png` | 金币（独立正面，未接线） | 360×430 透明底 |
 | `fonts/Inter-800.woff2` | SCORE / 设置标题 | ExtraBold |
 
-`bg-table.png` 不再使用（舞台纯色）。
+盘面三色：水滴 / 叶 / 太阳。道具：变色 / 魔法。  
+`bg-table.png` 不再使用（舞台纯色）。  
+旧点心剪影（`piece-biscuit` / `piece-donut` / `piece-jelly` / `piece-macaron`）已删，不要再加回。
 
 颜色第一识别。`#stage` 用 `color-scheme: light`。WebGPU 画布透明、无 tone mapping。
 
@@ -73,7 +77,7 @@
 | 标题 | `SCORE`，Inter 800，15px，字距 0.16em，`#c47ee0` |
 | 数字 | Inter 800，46px，`#8f5a3c` |
 | 位置 | 顶栏水平居中；右侧设置按钮 |
-| 语义 | 累计分；连格小额预览，抬手大额滚动（见 DESIGN） |
+| 语义 | 累计分；连格 +1 预览，抬手一次滚到取整后的累计（见 DESIGN） |
 
 ## 大盘投影
 

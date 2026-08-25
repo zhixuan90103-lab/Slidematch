@@ -14,25 +14,26 @@
 ## 阶段 A 已落地
 
 - 底座：390×844、contain、透明 WebGPU、舞台 `#fdf1e7`  
-- 美术：框九宫、薰衣草浅格、五色黏土 PNG（360×430）  
+- 美术：框九宫、薰衣草浅格、黏土牌 PNG（360×430；盘面水滴 / 叶 / 太阳）  
 - HUD：SCORE + 设置  
 - 调参：覆盖 `LOOK`，默认即设计  
 
 ## 代码
 
 ```
-src/game/design.ts     LOOK / ART / GRID / RULES / PIECE_DRAW
+src/game/design.ts     LOOK / ART / GRID / RULES / FEEL / PIECE_DRAW
 src/game/config.ts     行列、框切片、棋子路径
 src/game/items.ts      道具生成与结算
 src/game/score.ts      累计分 / n² / 道具倍率
+src/game/clearFx.ts    消除碎屑
 src/game/settings.ts   调参与 layout
 src/game/board.ts      点中、初盘保证 ≥ PATH_MIN 连通
-src/game/mount.ts      DOM + 设置叠层
+src/game/mount.ts      DOM、选中、变色气泡、合成飞入
 src/assets/            见 BOARD.md
 ```
 
-阶段 B：`src/game/path.ts` + `input.ts`。阶段 C：`src/game/drop.ts` + `mount.ts`。阶段 E：`src/game/items.ts`。阶段 F：`src/game/score.ts`。下一刀阶段 D：6/8/10 档视+震。
+阶段 B：`path.ts` + `input.ts`。阶段 C：`drop.ts` + `mount.ts` + `clearFx.ts`。阶段 E：`items.ts` + FEEDBACK。阶段 F：`score.ts`。下一刀阶段 D：6/8/10 档视+震。
 
 ## 禁止
 
-射线当路径；`setSize(innerWidth)`；玩法 UI `position: fixed`；WebGL 静默回退；热路径 `new Audio()`；用 `prepare()` 判断震动；按钮式全盘清；素材再压成低质量 JPEG；棋子 `box-shadow` / CSS 圆角裁切。棋子投影只用 `drop-shadow`（见 BOARD）。道具规则只改 [ITEMS.md](./ITEMS.md) + `items.ts`。
+射线当路径；`setSize(innerWidth)`；玩法 UI `position: fixed`；WebGL 静默回退；热路径 `new Audio()`；用 `prepare()` 判断震动；按钮式全盘清；素材再压成低质量 JPEG；棋子 `box-shadow` / CSS 圆角裁切。棋子投影只用 `drop-shadow`（见 BOARD）。道具规则只改 [ITEMS.md](./ITEMS.md) + `items.ts`。反馈只改 [FEEDBACK.md](./FEEDBACK.md) + `FEEL`。

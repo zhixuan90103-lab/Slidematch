@@ -3,7 +3,7 @@
 竖屏 **最长路径消除**：**6×6** 滑动连同色，**≥2** 抬手结算。  
 底座：TypeScript + Three.js WebGPU + Vite + Capacitor iOS，舞台 **390×844**，底色 `#fdf1e7`。
 
-从 [AGENTS.md](./AGENTS.md) 进。规范地图与当前规格：[docs/SPEC.md](./docs/SPEC.md)。玩法 [docs/DESIGN.md](./docs/DESIGN.md)。道具 [docs/ITEMS.md](./docs/ITEMS.md)。数字 `src/game/design.ts`。
+从 [AGENTS.md](./AGENTS.md) 进。规范地图：[docs/SPEC.md](./docs/SPEC.md)。玩法 [docs/DESIGN.md](./docs/DESIGN.md)。道具 [docs/ITEMS.md](./docs/ITEMS.md)。反馈 [docs/FEEDBACK.md](./docs/FEEDBACK.md)。数字 `src/game/design.ts`。
 
 ## 上手
 
@@ -23,6 +23,7 @@ npm run dev
 | [docs/SPEC.md](./docs/SPEC.md) | 规范地图 |
 | [docs/DESIGN.md](./docs/DESIGN.md) | 玩法 |
 | [docs/ITEMS.md](./docs/ITEMS.md) | 道具生成与结算 |
+| [docs/FEEDBACK.md](./docs/FEEDBACK.md) | 选中 / 消除 / 变色 / 合成飞入 |
 | [docs/BOARD.md](./docs/BOARD.md) | 逻辑/视觉盘、素材、默认参数 |
 | [docs/OPERATION.md](./docs/OPERATION.md) | 滑动手感 |
 | [docs/DROP.md](./docs/DROP.md) | 占坑与下落（初速 / 加速度 / 上限） |

@@ -165,7 +165,7 @@ lastLocal: 上一采样的 local 坐标
 ## 7. 抬手与表现
 
 - 抬手点按第 5–6 节再跑一遍。  
-- `path.length >= 2` 且路径上 stable 格 ≥ 2：有效，消除并下落。HUD 一次滚到取整后的累计（见 DESIGN）。生成与结算见 [ITEMS.md](./ITEMS.md)（路径无道具时 ≥5 变色、≥10 魔法）。  
+- `path.length >= 2` 且路径上 stable 格 ≥ 2：有效，消除并下落。HUD 一次滚到取整后的累计（见 DESIGN）。生成与结算见 [ITEMS.md](./ITEMS.md)。选中/缩没/合成飞入见 [FEEDBACK.md](./FEEDBACK.md)。  
 - `< 2`：名单清空，高亮去掉，HUD 滚回累计（预览作废）。  
 - 下一划 `pointerdown` 清掉上一划有效态。  
 - 真取消：同 `< 2`。

@@ -45,7 +45,7 @@ stable 格 ≥ `pathMin` 才结算。滑动中不消、不出道具。
 
 ## 生成
 
-队尾格、消除动画后放入。一次 1 种 1 颗。当次吃不到。路径里已有任意道具则不出。
+一次 1 种 1 颗。当次吃不到刚弹出的。路径里已有任意道具则不出。达门槛时 **路径飞入队尾再弹出**（表现见 [FEEDBACK.md](./FEEDBACK.md) `synth`），不是缩没后再塞一颗。
 
 | 已有道具 | 长度 | 生成 |
 |----------|------|------|
@@ -62,8 +62,9 @@ stable 格 ≥ `pathMin` 才结算。滑动中不消、不出道具。
 |------|------|
 | `src/game/items.ts` | 生成、散消、显示色、`resolveStroke` |
 | `src/game/path.ts` | 四邻加/减；`canLinkColor` / `applyLinkColor` |
-| `src/game/mount.ts` | 抬手一次 resolve；变色气泡/标记；魔法贴图 class |
-| `src/game/drop.ts` | 消格 + `pendingItem`；不解释道具 |
+| `src/game/mount.ts` | 抬手一次 resolve；变色气泡/标记；合成飞入；魔法贴图 |
+| `src/game/drop.ts` | 消格、飞入腾格、道具格锁定；不解释道具语义 |
+| `src/game/clearFx.ts` | 碎屑 |
 | `src/game/score.ts` | n = 路径 + extraCells；倍率 |
 | `src/game/design.ts` | `itemMin` / `magicMin` / 色号 |
 

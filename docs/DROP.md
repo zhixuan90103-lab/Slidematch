@@ -3,7 +3,8 @@
 本玩法：**抬手消路径 → 补满盘面**。无交换、无落地后再自动三消。  
 路径只认 `stable`；邻列在掉时，已静止的子仍可划、抬手消。
 
-数字真源：`src/game/design.ts` 的 `LOOK.dropV0` / `dropAccel` / `dropVMax`。设置面板可临时覆盖。实现：`src/game/drop.ts`。
+数字真源：`src/game/design.ts` 的 `LOOK.dropV0` / `dropAccel` / `dropVMax`。设置面板可临时覆盖。实现：`src/game/drop.ts`。  
+合成飞入何时一起腾格、道具格锁定见 [FEEDBACK.md](./FEEDBACK.md)。
 
 ## 两层分开
 
