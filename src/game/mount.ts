@@ -4,6 +4,8 @@ import {
   clearMotion,
   COLS,
   FEEL,
+  gatherMotion,
+  itemPopMotion,
   FRAME_SLICE,
   PATH_MIN,
   PIECE_SRC,
@@ -249,11 +251,19 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       el.src = PIECE_SRC[shown]!;
     }
     setPieceBitmapSize(el);
-    const clearU = piece.state === 'clearing' ? piece.clearT / CLEAR_SEC : -1;
-    const clear = piece.state === 'clearing' ? clearMotion(clearU) : null;
-    const fade = clear ? clear.opacity : 1;
-    const x = pieceLeft(piece.col);
-    const y = pieceTop(piece.visualY) + piece.offsetY;
+    const gather = piece.state === 'clearing' && piece.flySec > 0;
+    const clearDur = gather ? piece.flySec : CLEAR_SEC;
+    const clearU = piece.state === 'clearing' ? piece.clearT / clearDur : -1;
+    const fly = gather ? gatherMotion(clearU) : null;
+    const clear = piece.state === 'clearing' && !gather ? clearMotion(clearU) : null;
+    const fade = fly ? fly.opacity : clear ? clear.opacity : 1;
+    const fromX = pieceLeft(piece.col);
+    const fromY = pieceTop(piece.visualY) + piece.offsetY;
+    const toX = piece.gatherCol != null ? pieceLeft(piece.gatherCol) : fromX;
+    const toY = piece.gatherCol != null ? pieceTop(piece.gatherY) : fromY;
+    const k = fly ? fly.k : 0;
+    const x = fromX + (toX - fromX) * k;
+    const y = fromY + (toY - fromY) * k;
     const dimAmt = dimK.get(piece.id) ?? 0;
     const opacity = fade * (1 - dimAmt * (1 - FEEL.select.otherOpacity));
     el.style.opacity = opacity === 1 ? '' : String(opacity);
@@ -265,42 +275,52 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const idle = idleT.get(piece.id) ?? 0;
     const vel = popV.get(piece.id) ?? 0;
     const settle = Math.max(0, 1 - (Math.abs(popK - 1) + Math.abs(vel) * 0.06) / 0.32);
+    const poppingIn = piece.itemPopSec > 0 && piece.itemPopT < piece.itemPopSec;
+    const popIn =
+      piece.itemPopSec > 0 ? itemPopMotion(piece.itemPopT / piece.itemPopSec, piece.itemPopAmp) : null;
     const bob =
-      piece.state === 'clearing'
+      piece.state === 'clearing' || poppingIn
         ? 0
         : FEEL.select.idleLift * settle * Math.sin(idle * FEEL.select.idleHz * Math.PI * 2 + piece.id * 0.9);
-    const clearS = clear ? clear.scale : 1;
+    const clearS = fly ? fly.scale : clear ? clear.scale : 1;
     const clearLift = clear ? clear.lift : 0;
     const wobble =
       piece.state === 'clearing' || popOutT.has(piece.id)
         ? 0
         : vel * (convertSel ? FEEL.convert.wobble : FEEL.select.wobble) * (piece.id % 2 === 0 ? 1 : -1);
     const dip = dipY.get(piece.id) ?? 0;
-    const liftY = FEEL.select.lift * Math.max(0, popK) + bob + clearLift - dip;
+    const popLift = popIn?.lift ?? 0;
+    const popRot = popIn?.rot ?? 0;
+    const popScale = popIn?.scale ?? 1;
+    const liftY = FEEL.select.lift * Math.max(0, popK) + bob + clearLift + popLift - dip;
     el.style.transform = pieceLayerTransform(
       x,
       y - liftY,
-      piece.scaleX * popS * clearS,
-      piece.scaleY * popS * clearS,
+      piece.scaleX * popS * clearS * popScale,
+      piece.scaleY * popS * clearS * popScale,
       layout.pieceW,
       layout.pieceH,
       pieceDpr(),
-      wobble,
+      wobble + popRot,
     );
     el.classList.toggle('is-clearing', piece.state === 'clearing');
     el.classList.toggle('is-convert', isConvertColor(piece.color) && !isMagicColor(shown));
     el.classList.toggle('is-magic', isMagicColor(shown));
     el.classList.toggle('is-dim', dimAmt > 0.02);
     el.classList.toggle('is-lifted', popK > 0);
-    const z = Math.round(piece.visualY * 20 + popK * 6);
+    const z = gather
+      ? 240 + Math.round((1 - k) * 20)
+      : piece.state === 'clearing'
+        ? 180
+        : Math.round(piece.visualY * 20 + popK * 6 + (poppingIn ? 16 : 0));
     el.style.zIndex = String(10 + z);
-    const host = piece.visualY < -0.02 ? movers : lifts;
+    const host = piece.visualY < -0.02 && !gather && !poppingIn ? movers : lifts;
     if (el.parentElement !== host) host.append(el);
 
     const pieceRow = piece.destRow ?? piece.sourceRow;
     const onPath = pathKeys.has(`${pieceRow},${piece.col}`);
     const markG = extraGlow.get(piece.id) ?? 0;
-    const glowAmt = clear ? clear.glow : onPath ? popK : markG;
+    const glowAmt = fly ? fly.glow : clear ? clear.glow : onPath ? popK : markG;
     let glow = glowEls.get(piece.id);
     const wantGlow = fade > 0.08 && glowAmt > 0.02;
     if (wantGlow) {
@@ -803,6 +823,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         dropAccel: tune.dropAccel,
         dropVMax: tune.dropVMax,
         onPieceCleared: (piece) => {
+          if (piece.flySec > 0) return;
           const shown = displayColor(piece.color, board.classList.contains('is-magic-look'));
           const popK = popT.get(piece.id) ?? 0;
           const clear = clearMotion(1);

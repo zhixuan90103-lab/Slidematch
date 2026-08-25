@@ -15,7 +15,7 @@
 | [docs/HANDOFF.md](./docs/HANDOFF.md) | 窗口交接 |
 | [docs/DESIGN.md](./docs/DESIGN.md) | 玩法 |
 | [docs/ITEMS.md](./docs/ITEMS.md) | 道具生成与结算 |
-| [docs/FEEDBACK.md](./docs/FEEDBACK.md) | 基础选中 / 消除 / 变色表现 |
+| [docs/FEEDBACK.md](./docs/FEEDBACK.md) | 基础选中 / 消除 / 变色 / 合成 |
 | [docs/BOARD.md](./docs/BOARD.md) | 逻辑 6×6 / 视觉框 / 棋子绘制 / HUD |
 | [docs/SWIPE.md](./docs/SWIPE.md) | 可拐弯路径（摘要） |
 | [docs/OPERATION.md](./docs/OPERATION.md) | 操作手感（实现真源） |

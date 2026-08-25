@@ -21,8 +21,10 @@
 
 **正下方一格能接，才打开上方的子**，目标永远是下一行，到了再订下一格。
 
-**空（`canReceiveDrop`）**：`current` 与 `incoming` 都空。  
+**空（`canReceiveDrop`）**：`current` 与 `incoming` 都空（队尾若在等道具弹出，该格也不空）。  
 **不空**：还有 current（含已在掉但没走出 0.22 格）、还有 incoming、或正在 `clearing`。
+
+合成飞入的腾格时机见 [FEEDBACK.md](./FEEDBACK.md)：路径格到点一起放空；只锁道具格，不锁整列。
 
 源格变空：子相对格心向下走满 **0.22 格**。
 

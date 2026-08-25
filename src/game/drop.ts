@@ -1,5 +1,5 @@
 import { inBounds, type Cell } from './board';
-import { COLOR_COUNT, COLS, FEEL, LOOK, ROWS } from './config';
+import { COLOR_COUNT, COLS, FEEL, LOOK, ROWS, isMagicColor, synthGatherTimes, synthPopAmp } from './config';
 
 /** 设计默认；运行时用设置里的 dropV0 / dropAccel / dropVMax。 */
 export const DROP_V0 = LOOK.dropV0;
@@ -49,6 +49,14 @@ export type Piece = {
   scaleX: number;
   scaleY: number;
   offsetY: number;
+  /** 飞向队尾：目标列；null = 原地基础消。 */
+  gatherCol: number | null;
+  gatherY: number;
+  flySec: number;
+  /** 道具弹出：>0 时不可划。 */
+  itemPopSec: number;
+  itemPopT: number;
+  itemPopAmp: number;
 };
 
 export type Slot = {
@@ -64,7 +72,9 @@ export type DropSim = {
   dropAccel: number;
   dropVMax: number;
   /** 消除动画结束后在该格放入道具。 */
-  pendingItem: { cell: Cell; color: number } | null;
+  pendingItem: { cell: Cell; color: number; magic: boolean; pathLen: number } | null;
+  /** 路径飞入格一起腾格的时刻。 */
+  vacateAt: number | null;
 };
 
 export type DropMetrics = {
@@ -120,6 +130,12 @@ function fillPiece(p: Piece, color: number, col: number, row: number): Piece {
   p.scaleX = 1;
   p.scaleY = 1;
   p.offsetY = 0;
+  p.gatherCol = null;
+  p.gatherY = 0;
+  p.flySec = 0;
+  p.itemPopSec = 0;
+  p.itemPopT = 0;
+  p.itemPopAmp = 1;
   return p;
 }
 
@@ -147,6 +163,12 @@ function makePiece(color: number, col: number, row: number): Piece {
       scaleX: 1,
       scaleY: 1,
       offsetY: 0,
+      gatherCol: null,
+      gatherY: 0,
+      flySec: 0,
+      itemPopSec: 0,
+      itemPopT: 0,
+      itemPopAmp: 1,
     },
     color,
     col,
@@ -183,11 +205,15 @@ export function createDropSim(colors: number[][]): DropSim {
     dropAccel: DROP_G,
     dropVMax: DROP_V_MAX,
     pendingItem: null,
+    vacateAt: null,
   };
 }
 
 export function canReceiveDrop(sim: DropSim, row: number, col: number): boolean {
   if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return false;
+  if (sim.pendingItem && sim.pendingItem.cell.row === row && sim.pendingItem.cell.col === col) {
+    return false;
+  }
   const s = sim.slots[row]![col]!;
   if (s.incoming) return false;
   if (!s.current) return true;
@@ -207,6 +233,7 @@ export function stableColors(sim: DropSim): number[][] {
 export function isCellStable(sim: DropSim, row: number, col: number, color?: number): boolean {
   const p = sim.slots[row]?.[col]?.current;
   if (!p || p.state !== 'stable') return false;
+  if (p.itemPopSec > 0 && p.itemPopT < p.itemPopSec) return false;
   if (color !== undefined && p.color !== color) return false;
   return true;
 }
@@ -220,8 +247,10 @@ export function stablePathCount(sim: DropSim, cells: { row: number; col: number 
 }
 
 export function boardBusy(sim: DropSim): boolean {
+  if (sim.pendingItem) return true;
   for (const p of sim.pieces.values()) {
     if (p.state !== 'stable') return true;
+    if (p.itemPopSec > 0 && p.itemPopT < p.itemPopSec) return true;
   }
   for (let row = 0; row < ROWS; row++) {
     for (let col = 0; col < COLS; col++) {
@@ -239,7 +268,12 @@ export function needsTick(sim: DropSim): boolean {
   return false;
 }
 
-function markClearing(sim: DropSim, cell: Cell, delay = 0): void {
+function markClearing(
+  sim: DropSim,
+  cell: Cell,
+  delay = 0,
+  gather?: { col: number; y: number; flySec: number },
+): void {
   if (!inBounds(cell)) return;
   const p = sim.slots[cell.row]![cell.col]!.current;
   if (!p || p.state !== 'stable') return;
@@ -247,14 +281,25 @@ function markClearing(sim: DropSim, cell: Cell, delay = 0): void {
   p.clearT = -delay;
   p.landActive = false;
   p.vy = 0;
+  if (gather) {
+    p.gatherCol = gather.col;
+    p.gatherY = gather.y;
+    p.flySec = gather.flySec;
+  }
 }
 
-function placeItem(sim: DropSim, cell: Cell, color: number): boolean {
-  if (!inBounds(cell) || !canReceiveDrop(sim, cell.row, cell.col)) return false;
+function placeItem(sim: DropSim, cell: Cell, color: number, magic: boolean, pathLen: number): boolean {
+  if (!inBounds(cell)) return false;
+  const s = sim.slots[cell.row]![cell.col]!;
+  if (s.incoming || s.current) return false;
   const piece = acquirePiece(color, cell.col, cell.row);
   piece.state = 'stable';
+  const mul = magic ? FEEL.synth.magicMul : 1;
+  piece.itemPopSec = FEEL.synth.spawnSec * mul;
+  piece.itemPopT = 0;
+  piece.itemPopAmp = synthPopAmp(pathLen);
   sim.pieces.set(piece.id, piece);
-  sim.slots[cell.row]![cell.col]!.current = piece;
+  s.current = piece;
   return true;
 }
 
@@ -265,25 +310,40 @@ export type ClearOpts = {
 
 export function beginClear(sim: DropSim, cells: Cell[], opts: ClearOpts = {}): void {
   const seen = new Set<string>();
-  const add = (cell: Cell) => {
+  const spawn = opts.spawnColor != null && cells.length > 0;
+  const last = spawn ? cells[cells.length - 1]! : null;
+  const magic = spawn && isMagicColor(opts.spawnColor!);
+  const { flySec, stagger } = spawn
+    ? synthGatherTimes(cells.length, !!magic)
+    : { flySec: FEEL.synth.flySec, stagger: FEEL.synth.stagger };
+  const gather = last
+    ? { col: last.col, y: last.row, flySec }
+    : undefined;
+
+  const add = (cell: Cell, delay: number, useGather: boolean) => {
     const k = `${cell.row},${cell.col}`;
     if (seen.has(k)) return;
     seen.add(k);
-    markClearing(sim, cell);
+    markClearing(sim, cell, delay, useGather ? gather : undefined);
   };
-  for (const cell of cells) add(cell);
+  cells.forEach((cell, i) => add(cell, spawn ? i * stagger : 0, spawn));
   if (opts.extraCells) {
-    const stagger = FEEL.clear.extraStagger;
+    const extraStagger = FEEL.clear.extraStagger;
     opts.extraCells.forEach((cell, i) => {
-      const k = `${cell.row},${cell.col}`;
-      if (seen.has(k)) return;
-      seen.add(k);
-      markClearing(sim, cell, i * stagger);
+      add(cell, i * extraStagger, false);
     });
   }
-  if (opts.spawnColor != null && cells.length) {
-    const last = cells[cells.length - 1]!;
-    sim.pendingItem = { cell: { row: last.row, col: last.col }, color: opts.spawnColor };
+  if (spawn && last) {
+    sim.pendingItem = {
+      cell: { row: last.row, col: last.col },
+      color: opts.spawnColor!,
+      magic: !!magic,
+      pathLen: cells.length,
+    };
+    const lastDelay = Math.max(0, cells.length - 1) * stagger;
+    sim.vacateAt = sim.time + lastDelay + FEEL.synth.vacateSec;
+  } else {
+    sim.vacateAt = null;
   }
 }
 
@@ -320,6 +380,10 @@ function beginDrop(sim: DropSim, piece: Piece, fromRow: number): boolean {
   return true;
 }
 
+function isItemPopping(piece: Piece): boolean {
+  return piece.itemPopSec > 0 && piece.itemPopT < piece.itemPopSec;
+}
+
 function trySpawn(sim: DropSim): void {
   for (let col = 0; col < COLS; col++) {
     if (!canReceiveDrop(sim, 0, col)) continue;
@@ -337,6 +401,7 @@ function scanStarts(sim: DropSim): void {
       const p = sim.slots[row]![col]!.current;
       if (!p) continue;
       if (p.state !== 'stable') continue;
+      if (isItemPopping(p)) continue;
       beginDrop(sim, p, row);
     }
   }
@@ -491,8 +556,29 @@ function integrate(sim: DropSim, dt: number, metrics: DropMetrics): void {
   for (const piece of sim.pieces.values()) {
     if (piece.state === 'clearing') {
       piece.clearT += dt;
-      if (piece.clearT >= CLEAR_SEC) {
-        metrics.onPieceCleared?.(piece);
+      let dur = piece.flySec > 0 ? piece.flySec : CLEAR_SEC;
+      const pending = sim.pendingItem;
+      if (
+        pending &&
+        piece.flySec > 0 &&
+        piece.col === pending.cell.col &&
+        Math.round(piece.visualY) === pending.cell.row
+      ) {
+        dur = Math.max(0.04, piece.flySec - FEEL.synth.spawnLead);
+      }
+      if (
+        piece.flySec > 0 &&
+        sim.vacateAt != null &&
+        sim.time >= sim.vacateAt
+      ) {
+        const srcRow = piece.sourceRow;
+        if (srcRow >= 0 && srcRow < ROWS) {
+          const slot = sim.slots[srcRow]![piece.col]!;
+          if (slot.current === piece) slot.current = null;
+        }
+      }
+      if (piece.clearT >= dur) {
+        if (piece.flySec <= 0) metrics.onPieceCleared?.(piece);
         const row = Math.round(piece.visualY);
         if (row >= 0 && row < ROWS) {
           const slot = sim.slots[row]![piece.col]!;
@@ -502,11 +588,17 @@ function integrate(sim: DropSim, dt: number, metrics: DropMetrics): void {
       }
       continue;
     }
-    if (piece.state === 'stable') tickLanding(piece, dt);
+    if (piece.state === 'stable') {
+      if (piece.itemPopSec > 0 && piece.itemPopT < piece.itemPopSec) {
+        piece.itemPopT += dt;
+      }
+      tickLanding(piece, dt);
+    }
   }
   for (let i = 0; i < recycleBuf.length; i++) recyclePiece(sim, recycleBuf[i]!);
   if (sim.pendingItem) {
-    if (placeItem(sim, sim.pendingItem.cell, sim.pendingItem.color)) sim.pendingItem = null;
+    const job = sim.pendingItem;
+    if (placeItem(sim, job.cell, job.color, job.magic, job.pathLen)) sim.pendingItem = null;
   }
 }
 

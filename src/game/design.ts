@@ -82,7 +82,7 @@ export const FEEL = {
     popVel: 16,
     spring: 340,
     damp: 8,
-    wobble: 0.42,
+    wobble: 0,
   },
   fx: {
     countMin: 3,
@@ -93,6 +93,30 @@ export const FEEL = {
     size: 8,
     sizeJitter: 0.4,
     emitR: 16,
+  },
+  /** 路径合成道具：依次飞向队尾，再弹出道具。 */
+  synth: {
+    stagger: 0.026,
+    flySec: 0.17,
+    /** 整段飞入对齐这个格数的时长（5 格：0.274s）。 */
+    refCount: 5,
+    staggerMin: 0.014,
+    spawnSec: 0.4,
+    /** 队尾收完前提前弹出（秒）。 */
+    spawnLead: 0.1,
+    /** 最后一颗开始飞后再过这么久，路径格一起腾格。 */
+    vacateSec: 0.12,
+    overshoot: 2.9,
+    popLift: 8,
+    /** 回原位后的位移过冲（px）。 */
+    popLand: 6,
+    popSpin: 20,
+    popWobble: 14,
+    popIdle: 0.055,
+    /** 比 5 格每多 1 子，弹出缩放加这一档。 */
+    popAmpPer: 0.08,
+    popAmpMax: 1.5,
+    magicMul: 1.12,
   },
 } as const;
 
@@ -122,6 +146,62 @@ export function clearMotion(u: number): {
     opacity: 1,
     glow: 1.8 * (1 - k),
   };
+}
+
+/** 单颗收缩固定为 flySec；错开压到与 refCount 格同一段总时长。 */
+export function synthGatherTimes(pathLen: number, magic: boolean): { flySec: number; stagger: number } {
+  const s = FEEL.synth;
+  const m = magic ? s.magicMul : 1;
+  const flySec = s.flySec * m;
+  const ref = Math.max(2, s.refCount);
+  const n = Math.max(1, pathLen);
+  const extra = Math.max(0, n - ref);
+  const total = ((ref - 1) * s.stagger + s.flySec) * m * (1 + extra * 0.055);
+  const stagger = n <= 1 ? 0 : Math.max(s.staggerMin, (total - flySec) / (n - 1));
+  return { flySec, stagger };
+}
+
+/** 路径越长（飞入越密），道具弹出过冲越大。5 格 = 1。 */
+export function synthPopAmp(pathLen: number): number {
+  const s = FEEL.synth;
+  const extra = Math.max(0, pathLen - s.refCount);
+  return Math.min(s.popAmpMax, 1 + extra * s.popAmpPer);
+}
+
+/** 飞向队尾：加速吸入，缩小。u 0→1。 */
+export function gatherMotion(u: number): {
+  k: number;
+  scale: number;
+  opacity: number;
+  glow: number;
+} {
+  if (u <= 0) return { k: 0, scale: 1, opacity: 1, glow: 1 };
+  const t = Math.min(1, u);
+  const k = t * t;
+  return {
+    k,
+    scale: 1 - t * t,
+    opacity: 1,
+    glow: 1.8 * (1 - t),
+  };
+}
+
+/** 过冲放大后原地晃：指数衰减，结束时幅度接近 0。 */
+export function itemPopMotion(u: number, amp = 1): { scale: number; lift: number; rot: number } {
+  const t = Math.min(1, Math.max(0, u));
+  const s = FEEL.synth;
+  const a = Math.max(1, amp);
+  const c3 = s.overshoot * a;
+  const c1 = c3 + 1;
+  const base = Math.max(0, 1 + c1 * (t - 1) ** 3 + c3 * (t - 1) ** 2);
+  const settleU = Math.max(0, (t - 0.3) / 0.7);
+  const damp = Math.exp(-4.6 * settleU);
+  const osc = Math.sin(settleU * Math.PI * 3.2);
+  const scale = Math.max(0, base + s.popIdle * a * osc * damp);
+  const rotPunch = s.popSpin * Math.sin(Math.PI * Math.min(1, t / 0.48)) * Math.exp(-6.5 * t);
+  const rot = rotPunch + s.popWobble * osc * damp;
+  const lift = s.popLift * a * Math.sin(Math.PI * t) + s.popLand * osc * damp;
+  return { scale, lift, rot };
 }
 
 export const RULES = {
