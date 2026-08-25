@@ -77,10 +77,16 @@ export const FEEL = {
     glowSec: 0.16,
     holdSec: 0.5,
     /** 散消标记 Additive 透明度。 */
-    markGlow: 0.14,
-    /** 松手选中散子：停住与路径相同，过冲更大。 */
-    popVel: 16,
-    spring: 340,
+    markGlow: 0.1,
+    /** 路径普通子换锁色：yaw 翻面时长。 */
+    recolorSec: 0.2,
+    /** 翻牌：1 → 放大 → 1，峰值在侧棱（绕中心）。 */
+    recolorScale: 1.35,
+    /** 松手选中散子：停住比路径更大，过冲更大。 */
+    scale: 1.1,
+    lift: 9,
+    popVel: 24,
+    spring: 320,
     damp: 8,
     wobble: 0,
   },
@@ -186,6 +192,13 @@ export function gatherMotion(u: number): {
   };
 }
 
+/** 翻牌缩放：绕图片中心。两端 1，侧棱（u=0.5）最大，避免窄帧看起来缩一圈。 */
+export function convertRecolorScale(u: number): number {
+  const t = Math.min(1, Math.max(0, u));
+  const peak = FEEL.convert.recolorScale;
+  return 1 + (peak - 1) * Math.sin(Math.PI * t);
+}
+
 /** 弹出缩放 `base` 达到最大的归一化时间（过冲顶点）。与 `itemPopMotion` 同一条三次曲线。 */
 export function itemPopPeakU(amp = 1): number {
   const a = Math.max(1, amp);
@@ -274,7 +287,7 @@ export function pieceDropShadowFilter(dpr: number): string {
   return `drop-shadow(${PIECE_DRAW.shadowX * d}px ${PIECE_DRAW.shadowY * d}px ${PIECE_DRAW.shadowBlur * d}px ${PIECE_DRAW.shadowColor})`;
 }
 
-/** 原点在布局盒左上。落地挤压绕底边中心，最后按 1/dpr 缩回显示大小。 */
+/** 原点在布局盒左上。旋转/centerScale 绕图片中心；落地挤压绕底边中心；最后 1/dpr。 */
 export function pieceLayerTransform(
   x: number,
   y: number,
@@ -284,8 +297,10 @@ export function pieceLayerTransform(
   pieceH: number,
   dpr: number,
   rotateDeg = 0,
+  centerScale = 1,
 ): string {
   const inv = 1 / clampPieceDpr(dpr);
   const rot = rotateDeg ? `rotate(${rotateDeg}deg) ` : '';
-  return `translate3d(${x}px,${y}px,0) translate(${pieceW / 2}px,${pieceH / 2}px) ${rot}translate(${-pieceW / 2}px,${-pieceH / 2}px) translate(${pieceW / 2}px,${pieceH}px) scale(${scaleX},${scaleY}) translate(${-pieceW / 2}px,${-pieceH}px) scale(${inv})`;
+  const mid = centerScale !== 1 ? `scale(${centerScale}) ` : '';
+  return `translate3d(${x}px,${y}px,0) translate(${pieceW / 2}px,${pieceH / 2}px) ${rot}${mid}translate(${-pieceW / 2}px,${-pieceH / 2}px) translate(${pieceW / 2}px,${pieceH}px) scale(${scaleX},${scaleY}) translate(${-pieceW / 2}px,${-pieceH}px) scale(${inv})`;
 }

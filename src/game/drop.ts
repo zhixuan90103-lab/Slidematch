@@ -53,6 +53,8 @@ export type Piece = {
   gatherCol: number | null;
   gatherY: number;
   flySec: number;
+  /** 抬手瞬间的显示色；-1 = 用逻辑色。缩没和碎屑用这个。 */
+  clearLook: number;
   /** 道具弹出：>0 时不可划。 */
   itemPopSec: number;
   itemPopT: number;
@@ -133,6 +135,7 @@ function fillPiece(p: Piece, color: number, col: number, row: number): Piece {
   p.gatherCol = null;
   p.gatherY = 0;
   p.flySec = 0;
+  p.clearLook = -1;
   p.itemPopSec = 0;
   p.itemPopT = 0;
   p.itemPopAmp = 1;
@@ -166,6 +169,7 @@ function makePiece(color: number, col: number, row: number): Piece {
       gatherCol: null,
       gatherY: 0,
       flySec: 0,
+      clearLook: -1,
       itemPopSec: 0,
       itemPopT: 0,
       itemPopAmp: 1,
@@ -178,7 +182,10 @@ function makePiece(color: number, col: number, row: number): Piece {
 
 function acquirePiece(color: number, col: number, row: number): Piece {
   const pooled = piecePool.pop();
-  if (pooled) return fillPiece(pooled, color, col, row);
+  if (pooled) {
+    pooled.id = nextId++;
+    return fillPiece(pooled, color, col, row);
+  }
   return makePiece(color, col, row);
 }
 

@@ -17,6 +17,7 @@
 
 - 划入合法。过它之后下一格可换普通色（`flex`）。
 - 从道具起划：锁定色未定，第一颗普通子锁定颜色。
+- 锁色改变时，路径上普通子只换贴图为当前锁色（见 FEEDBACK）。回退反向；有效抬手先记下显示色再丢掉翻面（缩没和碎屑用该色）。盘面逻辑色不变。
 - **变色散消滑动中不浮起散子，用 Additive 发亮标记。** 手指上方气泡显示已划格数；松手后数字逐个减，每减 1 选中 1 颗散子，再与路径一起消。
 
 **魔法额外：** `path.magic`。任意非空格可续连。只换贴图（`displayColor` → 色号 6），不改逻辑色、不加滤镜。退回不含魔法 / 抬手 / 取消：去掉 `#game-board.is-magic-look`。
@@ -61,6 +62,7 @@ stable 格 ≥ `pathMin` 才结算。滑动中不消、不出道具。
 | 文件 | 职责 |
 |------|------|
 | `src/game/items.ts` | 生成、散消、显示色、`resolveStroke` |
+| `src/game/convertLook.ts` | 换锁色显示：锁色、want、生命周期 |
 | `src/game/path.ts` | 四邻加/减；`canLinkColor` / `applyLinkColor` |
 | `src/game/mount.ts` | 抬手一次 resolve；变色气泡/标记；合成飞入；魔法贴图 |
 | `src/game/drop.ts` | 消格、飞入腾格、道具格锁定；不解释道具语义 |

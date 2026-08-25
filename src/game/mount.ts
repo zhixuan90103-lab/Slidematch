@@ -7,7 +7,11 @@ import {
   gatherMotion,
   itemPopMotion,
   convertPopYawSrc,
+  convertRecolorShown,
+  convertRecolorSrc,
+  convertRecolorScale,
   FRAME_SLICE,
+  MAGIC_COLOR,
   PATH_MIN,
   PIECE_SRC,
   ROWS,
@@ -40,6 +44,7 @@ import {
   resolveStroke,
   type StrokeResolve,
 } from './items';
+import { recolorLock, recolorWant, type RecolorFx } from './convertLook';
 import { commitStroke, createScoreRoll, linkPreview, setScoreTarget, strokeScore, tickScoreRoll } from './score';
 import {
   beginPath,
@@ -181,6 +186,20 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   const extraGlow = new Map<number, number>();
   const dipY = new Map<number, number>();
   const dipV = new Map<number, number>();
+  const recolorFx = new Map<number, RecolorFx>();
+
+  const forgetPieceFx = (id: number) => {
+    recolorFx.delete(id);
+    popT.delete(id);
+    popV.delete(id);
+    idleT.delete(id);
+    popOutFrom.delete(id);
+    popOutT.delete(id);
+    dimK.delete(id);
+    extraGlow.delete(id);
+    dipY.delete(id);
+    dipV.delete(id);
+  };
 
   for (let row = 0; row < ROWS; row++) {
     const line: HTMLDivElement[] = [];
@@ -248,16 +267,24 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       el = acquireImg();
       pieceEls.set(piece.id, el);
     }
-    const shown = displayColor(piece.color, board.classList.contains('is-magic-look'));
+    const shown =
+      piece.state === 'clearing' && piece.clearLook >= 0
+        ? piece.clearLook
+        : displayColor(piece.color, board.classList.contains('is-magic-look'));
     const poppingIn = piece.itemPopSec > 0 && piece.itemPopT < piece.itemPopSec;
     const popU = piece.itemPopSec > 0 ? piece.itemPopT / piece.itemPopSec : 1;
     const popIn =
       piece.itemPopSec > 0 ? itemPopMotion(popU, piece.itemPopAmp) : null;
+    const rec = recolorFx.get(piece.id);
+    const recU = rec ? rec.t / FEEL.convert.recolorSec : 1;
+    const recSrc =
+      rec && recU < 1 && !isMagicColor(shown) ? convertRecolorSrc(rec.from, rec.to, recU) : null;
+    const recStill = rec && recU >= 1 && !isMagicColor(shown) ? PIECE_SRC[rec.to] : null;
     const yawSrc =
       poppingIn && isConvertColor(piece.color) && !isMagicColor(shown)
         ? convertPopYawSrc(popU, piece.itemPopAmp)
         : null;
-    const src = yawSrc ?? PIECE_SRC[shown]!;
+    const src = yawSrc ?? recSrc ?? recStill ?? PIECE_SRC[shown]!;
     if (el.dataset.src !== src) {
       el.dataset.src = src;
       el.src = src;
@@ -284,7 +311,9 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const pieceRowEarly = piece.destRow ?? piece.sourceRow;
     const convertSel =
       !!pendingConvert && extraKeys.has(`${pieceRowEarly},${piece.col}`) && !pathKeys.has(`${pieceRowEarly},${piece.col}`);
-    const popS = 1 + (FEEL.select.scale - 1) * popK;
+    const selScale = convertSel ? FEEL.convert.scale : FEEL.select.scale;
+    const selLift = convertSel ? FEEL.convert.lift : FEEL.select.lift;
+    const popS = 1 + (selScale - 1) * popK;
     const idle = idleT.get(piece.id) ?? 0;
     const vel = popV.get(piece.id) ?? 0;
     const settle = Math.max(0, 1 - (Math.abs(popK - 1) + Math.abs(vel) * 0.06) / 0.32);
@@ -302,7 +331,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const popLift = popIn?.lift ?? 0;
     const popRot = popIn?.rot ?? 0;
     const popScale = popIn?.scale ?? 1;
-    const liftY = FEEL.select.lift * Math.max(0, popK) + bob + clearLift + popLift - dip;
+    const recPulse = rec && recU < 1 ? convertRecolorScale(recU) : 1;
+    const liftY = selLift * Math.max(0, popK) + bob + clearLift + popLift - dip;
     el.style.transform = pieceLayerTransform(
       x,
       y - liftY,
@@ -312,6 +342,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       layout.pieceH,
       pieceDpr(),
       wobble + popRot,
+      recPulse,
     );
     el.classList.toggle('is-clearing', piece.state === 'clearing');
     el.classList.toggle('is-convert', isConvertColor(piece.color) && !isMagicColor(shown));
@@ -358,10 +389,83 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     return el;
   };
 
+  const recolorVisualOf = (piece: Piece): number => {
+    const rec = recolorFx.get(piece.id);
+    if (!rec) return piece.color;
+    return convertRecolorShown(rec.from, rec.to, rec.t / FEEL.convert.recolorSec);
+  };
+
+  const retargetRecolor = (piece: Piece, want: number) => {
+    if (isItemColor(piece.color)) {
+      recolorFx.delete(piece.id);
+      return;
+    }
+    const rec = recolorFx.get(piece.id);
+    if (rec && !rec.done && rec.to === want) return;
+    const vis = recolorVisualOf(piece);
+    if (vis === want) {
+      if (want === piece.color) recolorFx.delete(piece.id);
+      else if (!rec || rec.to !== want || !rec.done) {
+        recolorFx.set(piece.id, {
+          from: want,
+          to: want,
+          t: FEEL.convert.recolorSec,
+          done: true,
+        });
+      }
+      return;
+    }
+    recolorFx.set(piece.id, { from: vis, to: want, t: 0, done: false });
+  };
+
+  /** 滑动中：锁色变则播翻面；回退反向。提交消除时不要走这里，用 snap 掉。 */
+  const syncRecolor = (next: PathState | null) => {
+    const lock = recolorLock(next, colors);
+    const onPath = new Set<string>();
+    if (lock >= 0 && next) {
+      for (const cell of next.cells) onPath.add(`${cell.row},${cell.col}`);
+    }
+    for (const piece of sim.pieces.values()) {
+      if (piece.state === 'clearing') continue;
+      const row = piece.destRow ?? piece.sourceRow;
+      const want = recolorWant(piece, lock, onPath.has(`${row},${piece.col}`));
+      retargetRecolor(piece, want);
+    }
+    for (const id of [...recolorFx.keys()]) {
+      if (!sim.pieces.has(id)) recolorFx.delete(id);
+    }
+  };
+
+  const snapRecolorOff = () => {
+    recolorFx.clear();
+  };
+
+  const tickRecolor = (dt: number): boolean => {
+    let any = false;
+    const sec = FEEL.convert.recolorSec;
+    for (const [id, rec] of recolorFx) {
+      if (!sim.pieces.has(id)) {
+        recolorFx.delete(id);
+        continue;
+      }
+      if (rec.done) continue;
+      rec.t += dt;
+      if (rec.t >= sec) {
+        rec.t = sec;
+        rec.done = true;
+        const piece = sim.pieces.get(id);
+        if (piece && rec.to === piece.color) recolorFx.delete(id);
+      }
+      any = true;
+    }
+    return any;
+  };
+
   const paintPieces = () => {
     for (const piece of sim.pieces.values()) syncPieceEl(piece);
     for (const [id, el] of pieceEls) {
       if (sim.pieces.has(id)) continue;
+      forgetPieceFx(id);
       releaseImg(el);
       pieceEls.delete(id);
     }
@@ -385,7 +489,6 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     acc: number;
     loc: { x: number; y: number };
     holding: boolean;
-    convertAt: Cell | null;
   } | null = null;
   applyLayout();
 
@@ -457,6 +560,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     } else {
       convertPreview = [];
     }
+    syncRecolor(next);
     if (!pendingConvert) {
       const show =
         next && pathUsesConvert(next, colors) ? next.cells.length : 0;
@@ -466,23 +570,33 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     ensureLoop();
   };
 
-  const hopConvert = () => {
-    const at = pendingConvert?.convertAt;
-    if (!at) return;
-    const piece = sim.slots[at.row]![at.col]!.current;
-    if (!piece || piece.state === 'clearing') return;
-    dipY.set(piece.id, dipY.get(piece.id) ?? 0);
-    dipV.set(piece.id, (dipV.get(piece.id) ?? 0) + FEEL.select.dipVel);
-  };
-
   const pickConvertExtra = (cell: Cell) => {
     extraKeys.add(`${cell.row},${cell.col}`);
-    hopConvert();
+  };
+
+  const lookColorNow = (piece: Piece): number => {
+    if (board.classList.contains('is-magic-look')) return MAGIC_COLOR;
+    const rec = recolorFx.get(piece.id);
+    if (rec) return convertRecolorShown(rec.from, rec.to, rec.t / FEEL.convert.recolorSec);
+    return piece.color;
+  };
+
+  const stampClearLook = (cells: Cell[]) => {
+    const seen = new Set<string>();
+    for (const cell of cells) {
+      const k = `${cell.row},${cell.col}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const p = sim.slots[cell.row]![cell.col]!.current;
+      if (p && p.state === 'stable') p.clearLook = lookColorNow(p);
+    }
   };
 
   const commitClear = (cells: Cell[], settle: StrokeResolve) => {
+    stampClearLook(cells.concat(settle.extraCells));
     beginClear(sim, cells, settle);
     void haptics.impact('medium');
+    snapRecolorOff();
     path = null;
     lastLocal = null;
     extraKeys.clear();
@@ -509,10 +623,6 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
           acc: 0,
           loc: { x: lastLocal.x, y: lastLocal.y },
           holding: false,
-          convertAt: path.cells.find((c) => {
-            const p = sim.slots[c.row]![c.col]!.current;
-            return !!p && isConvertColor(p.color);
-          }) ?? null,
         };
         extraKeys.clear();
         lastDipHover = null;
@@ -825,6 +935,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const dipping = tickDip(dt);
     const dimming = tickDim(dt);
     const glowing = tickExtraGlow(dt);
+    const recoloring = tickRecolor(dt);
     const dropping = needsTick(sim);
     if (dropping) {
       tickDrop(sim, dt, {
@@ -835,7 +946,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         dropVMax: tune.dropVMax,
         onPieceCleared: (piece) => {
           if (piece.flySec > 0) return;
-          const shown = displayColor(piece.color, board.classList.contains('is-magic-look'));
+          const shown = piece.clearLook >= 0 ? piece.clearLook : piece.color;
           const popK = popT.get(piece.id) ?? 0;
           const clear = clearMotion(1);
           spawnClearBurst(
@@ -852,7 +963,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       });
       colors = stableColors(sim);
     }
-    if (dropping || popping || dimming || dipping || glowing) {
+    if (dropping || popping || dimming || dipping || glowing || recoloring) {
       paintPieces();
       keep = true;
     }
