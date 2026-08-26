@@ -27,6 +27,7 @@
 | [docs/ENTRYPOINTS.md](./docs/ENTRYPOINTS.md) | 启动链 |
 | [docs/HAPTICS.md](./docs/HAPTICS.md) | 震动接入 §0 |
 | [docs/AUDIO.md](./docs/AUDIO.md) | 音效方案（未实现） |
+| [docs/PERF.md](./docs/PERF.md) | 魔法翻牌性能：已做 / 未过关 |
 
 ## 入口地图
 
@@ -38,6 +39,8 @@
 | 分数 | `src/game/score.ts` |
 | 消除碎屑 | `src/game/clearFx.ts` |
 | 静盘 | `src/game/config.ts` · `settings.ts` · `board.ts` · `mount.ts` · `src/assets/` |
+| 翻牌 / 魔法层 | `config.ts` 横条 · `convertLook.ts` · `scoreFly.ts` · `perfLog.ts` |
+| 路径角标 | `pathBadge.ts` |
 | 设计舞台 | `src/adapt/design.ts` |
 | 设备预览 | `src/adapt/devicePreview.ts` |
 | Safe Area | `src/adapt/safeArea.ts` + `#hud` 的 padding |

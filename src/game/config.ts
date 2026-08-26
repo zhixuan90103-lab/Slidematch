@@ -8,6 +8,8 @@ import pieceStar from '../assets/piece-star.png';
 import pieceConvert from '../assets/piece-convert.png';
 import pieceMagic from '../assets/piece-magic.png';
 import goldSrc from '../assets/coin.png';
+
+
 import { ART, FEEL, GRID, LOOK, RULES, itemPopPeakU } from './design';
 
 const yawStripMods = import.meta.glob('../assets/fx-preview/yaw-2d/*/yaw_strip.png', {
@@ -78,6 +80,7 @@ export {
   PIECE_ASPECT,
   PIECE_DRAW,
   PIECE_FX_COLOR,
+  pieceBadgeStyle,
   RULES,
   colorCountForScore,
   STAGE,
@@ -137,9 +140,20 @@ export const PIECE_SRC = [
 export const COIN_SRC = stripFor('magic_bai');
 export const GOLD_SRC = goldSrc;
 
+
+
 const LOOK_WARM_SRCS = [
   ...new Set(
-    [stripFor('coin'), stripFor('magic_bai'), ...LOOK_PRELOAD_SRCS, GOLD_SRC, COIN_SRC, ...PIECE_SRC].filter(
+    [
+      stripFor('coin'),
+      stripFor('magic_bai'),
+
+
+      ...LOOK_PRELOAD_SRCS,
+      GOLD_SRC,
+      COIN_SRC,
+      ...PIECE_SRC,
+    ].filter(
       Boolean,
     ),
   ),

@@ -22,8 +22,11 @@
 数字真源：`src/game/design.ts` 的 `PIECE_DRAW`。
 
 - 棋子 PNG 是 **实心黏土圆角牌 + 图标**，只有四角全透明，不是镂空剪影。
-- 静图直出；翻牌 / 弹出 yaw 用 `yaw-2d/<套>/yaw_strip.png`（12 帧横条：00–06+19–23），DOM 只改 `background-position`，不换 `src`。
-- 棋子是带背景的 `div.board-piece`（不是每帧一张 `<img>`）。`overflow: hidden` 裁到一格。
+- 静图：`piece-*.png` / `coin.png`。翻牌 yaw：`src/assets/fx-preview/yaw-2d/<套>/yaw_strip.png`（**13 格**：00–06+19–23 再加末格静图）。运行时只 import 横条。
+- 棋子是 `div.board-piece` + `background-position` 裁帧，不是每帧换 `<img src>`。`overflow: hidden` 裁到一格。
+- 魔法另两层 overlay（白板 `magic_bai`、金币 `coin`），36 张预建；非魔法 `opacity: 0`。
+- 重打横条：`python3 scripts/pack-yaw-atlas.py`（要 ffmpeg）。
+
 - **禁止** CSS `border-radius` 裁图（圆角只信素材 Alpha）。
 - **禁止** 棋子 `box-shadow`（矩形影会垫在透明角下面）。
 - 投影：`filter: drop-shadow(0 3px 1px rgba(90, 55, 80, 0.42))`，下投影、小范围，贴 Alpha。

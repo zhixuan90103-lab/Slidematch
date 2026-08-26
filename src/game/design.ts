@@ -65,6 +65,12 @@ export const FEEL = {
     dimSec: 0.08,
     idleLift: 0.3,
     idleHz: 0.85,
+    badgeSize: 18,
+    /** 当前队尾（手指所在格）角标。 */
+    badgeSizeNow: 30,
+    badgeOut: 9,
+    /** 出现、队尾放大/缩小：到点即停。 */
+    badgeSnapSec: 0.12,
   },
   clear: {
     sec: 0.15,
@@ -73,11 +79,15 @@ export const FEEL = {
   },
   convert: {
     tickSec: 0.07,
-    countLift: 36,
+    /** 散子选完后，剩下的气泡数字在这段时间内跑完。 */
+    tickEmptySpan: 0.12,
+    countLift: 28,
     glowSec: 0.16,
     holdSec: 0.5,
     /** 散消标记 Additive 透明度。 */
     markGlow: 0.1,
+    /** 魔法白板 Additive。金币仍用 select.glowOpacity 0.18。 */
+    blankGlow: 0.05,
     /** 路径普通子换锁色：yaw 翻面时长。 */
     recolorSec: 0.2,
     /** 魔法取消翻回时长。 */
@@ -165,6 +175,21 @@ export const PIECE_FX_COLOR = [
   '#f0c44a',
   '#f3e4ea',
 ] as const;
+
+function mixHex(hex: string, toward: number, t: number): string {
+  const n = Number.parseInt(hex.slice(1), 16);
+  const mix = (c: number) => Math.min(255, Math.round(c + (toward - c) * t));
+  const r = mix((n >> 16) & 255);
+  const g = mix((n >> 8) & 255);
+  const b = mix(n & 255);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
+
+/** 路径角标：浅底 + 棋子色字，比满色圆点弱。 */
+export function pieceBadgeStyle(color: number): { bg: string; fg: string } {
+  const hex = PIECE_FX_COLOR[color] ?? PIECE_FX_COLOR[0]!;
+  return { bg: mixHex(hex, 255, 0.62), fg: mixHex(hex, 0, 0.12) };
+}
 
 export function clearMotion(u: number): {
   scale: number;

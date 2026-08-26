@@ -22,7 +22,9 @@
 
 ```
 src/game/design.ts     LOOK / ART / GRID / RULES / FEEL / PIECE_DRAW
-src/game/config.ts     行列、框切片、棋子路径
+src/game/config.ts     行列、框切片、yaw 横条、warmup
+src/game/perfLog.ts    真机帧时日志
+src/game/pathBadge.ts  路径角标出现/队尾缩放/消失
 src/game/items.ts      道具生成与结算
 src/game/score.ts      累计分 / n² / 道具倍率
 src/game/clearFx.ts    消除碎屑

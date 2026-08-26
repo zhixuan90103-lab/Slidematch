@@ -53,6 +53,9 @@ index.html
 |------|------|
 | 视觉/规则默认 | `src/game/design.ts`（`LOOK` / `PIECE_DRAW` / `RULES` / `FEEL`） |
 | 选中/消除/变色/合成反馈 | [FEEDBACK.md](./FEEDBACK.md) · `FEEL` · `clearFx.ts` · `mount.ts` · `convertLook.ts` · `scoreFly.ts` |
+| yaw 横条 | `src/assets/fx-preview/yaw-2d/*/yaw_strip.png` · `scripts/pack-yaw-atlas.py` · `config.ts` |
+| 真机帧时 | `perfLog.ts` · `?debugPerf=1` · [PERF.md](./PERF.md) |
+| 路径角标 | `pathBadge.ts` · `FEEL.select.badge*` |
 | 调参覆盖 | `src/game/settings.ts`；HUD 齿轮 → `#settings-root` |
 | 素材 | `src/assets/` · [BOARD.md](./BOARD.md) |
 | 道具生成/结算 | `src/game/items.ts` · [ITEMS.md](./ITEMS.md) |

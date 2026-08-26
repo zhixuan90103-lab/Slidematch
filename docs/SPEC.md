@@ -14,7 +14,7 @@
 | 8 | [SWIPE.md](./SWIPE.md) | 路径规则摘要 | 手感实现（让 5） |
 
 运行时数字：`src/game/design.ts`（`LOOK` / `ART` / `GRID` / `RULES` / `PIECE_DRAW` / `FEEL`）。与 2、3、4、6、7 冲突时先改文档再改该文件。  
-备忘、不当局：[SWIPE-RESEARCH.md](./SWIPE-RESEARCH.md)、[PLAN.md](./PLAN.md)、[HANDOFF.md](./HANDOFF.md)、[SOURCES.md](./SOURCES.md)、[PERF.md](./PERF.md)（卡顿检索，未改实现）。
+备忘、不当局：[SWIPE-RESEARCH.md](./SWIPE-RESEARCH.md)、[PLAN.md](./PLAN.md)、[HANDOFF.md](./HANDOFF.md)、[SOURCES.md](./SOURCES.md)、[PERF.md](./PERF.md)（卡顿检索与已做优化）。
 
 ## 当前规格（已冻结）
 
@@ -30,8 +30,8 @@
 | 棋子 | 360×430 RGBA **实心黏土牌**（仅四角透明）；禁止 CSS 圆角裁切与矩形 `box-shadow` |
 | 棋子投影 | `drop-shadow(0 3px 1px)` 下投影，贴 Alpha；位图 ×DPR（上限 3） |
 | 道具 | 无道具 ≥5 出变色、≥10 出魔法；路上只有变色且 ≥10 也出魔法；路上有魔法则不出。细则 [ITEMS.md](./ITEMS.md) |
-| 变色子 | `piece-convert.png`；划过可换色；滑动中 Additive 标散子；气泡显示划线格数；松手倒数选中后再消。细则 [ITEMS.md](./ITEMS.md) · [FEEDBACK.md](./FEEDBACK.md) |
-| 魔法子 | `piece-magic.png`；本划全同色；点中后底板翻成白板、金币叠上同翻（无滤镜）；抬手只消路径；划满盘 = 清屏 |
+| 变色子 | `piece-convert.png`；划过可换色；Additive 标散子；松手角标从后往前逐个消失并点散子。细则 [ITEMS.md](./ITEMS.md) · [FEEDBACK.md](./FEEDBACK.md) |
+| 魔法子 | `piece-magic.png`；本划全同色。原色子不换白板横条；白板 + 金币两层 overlay。Additive：白板 0.05 / 金币 0.18。抬手只消路径并飞金币；划满盘 = 清屏 |
 | 反馈 | 选中浮起；消子缩完才腾格+碎屑；达门槛则路径飞入队尾弹出道具。见 [FEEDBACK.md](./FEEDBACK.md) |
 | HUD | 居中 **SCORE**：连格 +1/格预览；抬手滚到「n²×倍率后个位四舍五入」的累计 |
 | iOS | `com.slidematch.play` / SlideMatch |

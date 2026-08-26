@@ -22,7 +22,7 @@
 
 ## 新窗口第一句（可粘贴）
 
-继续 SlideMatch。先读 `docs/SPEC.md`、`DESIGN.md`、`ITEMS.md`、`FEEDBACK.md`、`BOARD.md`、`OPERATION.md`、`DROP.md`。阶段 A–C–E–F 已完成。基础选中/消除/变色表现见 FEEDBACK。下落占坑 0.22；运动 600 / 1400 / 1600。视觉与反馈数字只改 `src/game/design.ts` 的 `LOOK` / `FEEL`。下一刀阶段 D：路径长度 6/8/10 档视+震。按钮式全盘清 / 排行榜不要做。
+继续 SlideMatch。先读 `docs/SPEC.md`、`DESIGN.md`、`ITEMS.md`、`FEEDBACK.md`、`BOARD.md`、`OPERATION.md`、`DROP.md`。阶段 A–C–E–F 已完成。翻牌走 yaw 横条；魔法是原色子 + 白板 overlay + 金币 overlay。视觉与反馈数字只改 `src/game/design.ts` 的 `LOOK` / `FEEL`。下一刀阶段 D：路径长度 6/8/10 档视+震。第一次点魔法 / 翻回仍可能卡，见 PERF。按钮式全盘清 / 排行榜不要做。
 
 ## 阶段
 
@@ -66,7 +66,8 @@ iOS **`com.slidematch.play` / SlideMatch**。
 
 ```
 src/game/design.ts  LOOK / ART / GRID / RULES / FEEL / PIECE_DRAW
-src/game/config.ts  资源 + 再导出
+src/game/config.ts  资源、yaw 横条、warmup
+src/game/perfLog.ts 真机 [perf] 帧时（console / sessionStorage / ?debugPerf=1）
 src/game/items.ts   生成、散消、resolveStroke
 src/game/score.ts   n² × 倍率，累计滚动
 src/game/clearFx.ts 消除碎屑
@@ -74,7 +75,10 @@ src/game/settings.ts 调参覆盖 LOOK（下落三条）
 src/game/path.ts    四邻过边/进格、加/减、插值
 src/game/input.ts   第一指、cancel 续划、合批
 src/game/drop.ts    占坑 0.22、飞入一起腾格、道具格锁
-src/game/mount.ts   喂点、选中弹簧、变色气泡、合成飞入、rAF
+src/game/convertLook.ts 锁色 / 魔法显示
+src/game/scoreFly.ts 金币飞向 SCORE
+src/game/pathBadge.ts 路径角标运动
+src/game/mount.ts   选中、气泡、合成飞入、白板/金币 overlay、rAF
 src/game/board.ts   cellFromLocal / 初盘连通
 ```
 

@@ -19,6 +19,7 @@ import {
   goldSpinLook,
   goldSpinLoopLook,
   pieceLook,
+
   type LookFrame,
   convertRecolorScale,
   colorCountForScore,
@@ -37,6 +38,7 @@ import {
   isMagicColor,
   pieceDropShadowFilter,
   pieceLayerTransform,
+  pieceBadgeStyle,
 } from './config';
 import {
   beginClear,
@@ -54,7 +56,6 @@ import { bindSwipeInput } from './input';
 import { haptics } from '../utils/haptics';
 import {
   extraClearCells,
-  pathUsesConvert,
   resolveStroke,
   type StrokeResolve,
 } from './items';
@@ -66,6 +67,7 @@ import {
   type RecolorFx,
 } from './convertLook';
 import { magicClearDelay, scoreFlyEase, scoreFlyScale, type ScoreFly } from './scoreFly';
+import { badgeFontPx, badgeTargetPx, tickBadgeMotion, type BadgeMotion } from './pathBadge';
 import { createPerfLog, type PerfScene } from './perfLog';
 import { commitStroke, createScoreRoll, linkPreview, setScoreTarget, strokeScore, tickScoreRoll } from './score';
 import {
@@ -137,6 +139,12 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   const convertCountEl = document.createElement('div');
   convertCountEl.className = 'board-convert-count';
   convertCountEl.hidden = true;
+  const convertCountClip = document.createElement('div');
+  convertCountClip.className = 'board-convert-clip';
+  const convertCountNum = document.createElement('span');
+  convertCountNum.className = 'board-convert-num';
+  convertCountClip.append(convertCountNum);
+  convertCountEl.append(convertCountClip);
   fxLayer.append(convertCountEl);
 
 
@@ -190,6 +198,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
 
     for (const img of pieceEls.values()) setPieceBitmapSize(img);
     for (const img of glowEls.values()) setPieceBitmapSize(img);
+    for (const img of blankGlowEls.values()) setPieceBitmapSize(img);
+
     for (const img of coinEls.values()) setPieceBitmapSize(img);
     for (const img of imgPool) setPieceBitmapSize(img);
     for (const img of coinPool) setPieceBitmapSize(img);
@@ -206,6 +216,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
 
   const pieceEls = new Map<number, HTMLElement>();
   const glowEls = new Map<number, HTMLElement>();
+  const blankGlowEls = new Map<number, HTMLElement>();
   const coinEls = new Map<number, HTMLElement>();
   const blankEls = new Map<number, HTMLElement>();
   const scoreFlies: ScoreFly[] = [];
@@ -217,6 +228,11 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   const cellEls: HTMLDivElement[][] = [];
   const lastPath: HTMLDivElement[] = [];
   const pathKeys = new Set<string>();
+  const pathOrder = new Map<string, number>();
+  const pathBadgeEls = new Map<number, HTMLElement>();
+  const pathBadgePool: HTMLElement[] = [];
+  const badgeMo = new Map<number, BadgeMotion>();
+
   const extraKeys = new Set<string>();
   const popT = new Map<number, number>();
   const popV = new Map<number, number>();
@@ -294,6 +310,22 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const el = acquireFrom(blankPool, () => makePieceEl(lifts, 'board-piece is-blank-overlay'));
     el.classList.add('is-blank-overlay');
     return el;
+  };
+
+  const acquirePathBadge = (): HTMLElement =>
+    acquireFrom(pathBadgePool, () => {
+      const el = document.createElement('div');
+      el.className = 'board-path-badge';
+      lifts.append(el);
+      return el;
+    });
+
+  const releasePathBadge = (el: HTMLElement, id?: number) => {
+    el.textContent = '';
+    el.style.background = '';
+    parkEl(el);
+    pathBadgePool.push(el);
+    if (id != null) badgeMo.delete(id);
   };
 
   const acquireFly = (): HTMLElement =>
@@ -403,7 +435,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     placeIdle(el, Math.floor(i / COLS), i % COLS);
     blankPool.push(el);
   }
-  for (let i = 0; i < warmCount; i++) {
+  for (let i = 0; i < warmCount * 2; i++) {
     const el = makePieceEl(lifts, 'board-piece is-additive-glow');
     applyLook(el, pieceLook(0));
     parkEl(el);
@@ -536,25 +568,6 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const onPath = pathKeys.has(`${pieceRow},${piece.col}`);
     const markG = extraGlow.get(piece.id) ?? 0;
     const glowAmt = fly ? fly.glow : clear ? clear.glow : onPath ? popK : markG;
-    let glow = glowEls.get(piece.id);
-    const wantGlow = fade > 0.08 && glowAmt > 0.02;
-    if (wantGlow) {
-      if (!glow) {
-        glow = acquireGlow();
-        glowEls.set(piece.id, glow);
-      }
-      applyLook(glow, look);
-      glow.dataset.color = String(shown);
-      glow.style.filter = 'none';
-      const glowOp = onPath ? FEEL.select.glowOpacity : FEEL.convert.markGlow;
-      glow.style.opacity = String(glowOp * fade * glowAmt);
-      glow.style.transform = el.style.transform;
-      glow.style.zIndex = String(11 + z);
-      if (glow.parentElement !== host) host.append(glow);
-    } else if (glow) {
-      releaseGlow(glow);
-      glowEls.delete(piece.id);
-    }
 
     const coinDelay = FEEL.convert.coinDelaySec;
     const goingBlank = !!rec && rec.to === COIN_LOOK;
@@ -633,6 +646,102 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       coin.style.zIndex = '2';
     }
     if (coin.parentElement !== host) host.append(coin);
+
+    const wantGlow = fade > 0.08 && glowAmt > 0.02;
+    const pathGlowOp = onPath ? FEEL.select.glowOpacity : FEEL.convert.markGlow;
+    const coinOn = wantCoin && fade > 0.08;
+    const paintGlow = (
+      map: Map<number, HTMLElement>,
+      glowLook: LookFrame,
+      xf: string,
+      zi: number,
+      op: number,
+    ) => {
+      let glow = map.get(piece.id);
+      if (!glow) {
+        glow = acquireGlow();
+        map.set(piece.id, glow);
+      }
+      applyLook(glow, glowLook);
+      glow.dataset.color = String(shown);
+      glow.style.filter = 'none';
+      glow.style.opacity = String(op * fade * glowAmt);
+      glow.style.transform = xf;
+      glow.style.zIndex = String(zi);
+      if (glow.parentElement !== host) host.append(glow);
+    };
+    const dropGlow = (map: Map<number, HTMLElement>) => {
+      const glow = map.get(piece.id);
+      if (!glow) return;
+      releaseGlow(glow);
+      map.delete(piece.id);
+    };
+    if (wantGlow && wantBlank) {
+      paintGlow(
+        blankGlowEls,
+        rec && magicRec ? convertBlankLook(rec.from, rec.to, recU) : blankRestLook(),
+        el.style.transform,
+        13 + z,
+        FEEL.convert.blankGlow,
+      );
+    } else {
+      dropGlow(blankGlowEls);
+    }
+    if (wantGlow && coinOn) {
+      paintGlow(
+        glowEls,
+        rec && goldU < 1 && goldU >= 0 ? goldSpinLook(goldU, leavingBlank) : goldSpinLook(1, false),
+        coin.style.transform,
+        15 + z,
+        pathGlowOp,
+      );
+    } else if (wantGlow && !wantBlank) {
+      paintGlow(glowEls, look, el.style.transform, 11 + z, pathGlowOp);
+    } else if (!(wantGlow && coinOn)) {
+      dropGlow(glowEls);
+    }
+    const order = pathOrder.get(`${pieceRow},${piece.col}`);
+    const cap = pendingConvert ? pendingConvert.shown : 999;
+    const keepCount = order != null && order <= cap;
+    let badge = pathBadgeEls.get(piece.id);
+    const curSize = badgeMo.get(piece.id)?.x ?? 0;
+    if (onPath && order != null && fade > 0.08 && (keepCount || curSize > 1.2)) {
+      if (!badge) {
+        badge = acquirePathBadge();
+        pathBadgeEls.set(piece.id, badge);
+      }
+      const bs = badgeMo.get(piece.id)?.x ?? (keepCount ? FEEL.select.badgeSize : 0);
+      if (!keepCount && bs < 1.2) {
+        releasePathBadge(badge, piece.id);
+        pathBadgeEls.delete(piece.id);
+      } else {
+        const out = FEEL.select.badgeOut;
+        const swipeColor = path?.magic
+          ? 6
+          : path && path.color >= 0
+            ? path.color
+            : shown === COIN_LOOK
+              ? 6
+              : shown >= 0
+                ? shown
+                : piece.color;
+        const tint = pieceBadgeStyle(swipeColor);
+        badge.textContent = String(order);
+        badge.style.width = `${bs}px`;
+        badge.style.height = `${bs}px`;
+        badge.style.fontSize = badgeFontPx(bs, order);
+        badge.style.background = tint.bg;
+        badge.style.color = tint.fg;
+        badge.style.opacity = String(0.88 * (keepCount ? 1 : Math.min(1, bs / FEEL.select.badgeSize)));
+        badge.style.transform = `translate3d(${x + layout.pieceW - bs + out}px,${y - liftY - out}px,0)`;
+        badge.style.transformOrigin = 'center center';
+        badge.style.zIndex = String(20 + z);
+        if (badge.parentElement !== host) host.append(badge);
+      }
+    } else if (badge) {
+      releasePathBadge(badge, piece.id);
+      pathBadgeEls.delete(piece.id);
+    }
     return el;
   };
 
@@ -748,6 +857,12 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       releaseGlow(el);
       glowEls.delete(id);
     }
+    for (const [id, el] of blankGlowEls) {
+      if (sim.pieces.has(id) && pathKeys.size) continue;
+      releaseGlow(el);
+      blankGlowEls.delete(id);
+    }
+
     for (const [id, el] of coinEls) {
       if (sim.pieces.has(id)) continue;
       releaseCoin(el);
@@ -757,6 +872,11 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       if (sim.pieces.has(id)) continue;
       releaseBlank(el);
       blankEls.delete(id);
+    }
+    for (const [id, el] of pathBadgeEls) {
+      if (sim.pieces.has(id) && pathKeys.size) continue;
+      releasePathBadge(el, id);
+      pathBadgeEls.delete(id);
     }
   };
 
@@ -772,13 +892,14 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     acc: number;
     loc: { x: number; y: number };
     holding: boolean;
+    emptyTick: number | null;
   } | null = null;
   applyLayout();
 
   let convertCountOn = false;
   const paintConvertCount = (n: number, loc: { x: number; y: number } | null) => {
     if (n > 0 && loc) {
-      convertCountEl.textContent = String(n);
+      convertCountNum.textContent = String(n);
       convertCountEl.style.left = `${loc.x}px`;
       convertCountEl.style.top = `${loc.y - FEEL.convert.countLift}px`;
       convertCountEl.hidden = false;
@@ -823,6 +944,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     }
     lastPath.length = 0;
     pathKeys.clear();
+    pathOrder.clear();
     extraKeys.clear();
     const magicLook = !!next?.magic;
     if (board.classList.contains('is-magic-look') !== magicLook) {
@@ -831,6 +953,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     if (next) {
       next.cells.forEach((cell, i) => {
         pathKeys.add(`${cell.row},${cell.col}`);
+        pathOrder.set(`${cell.row},${cell.col}`, i + 1);
         const el = cellEls[cell.row]?.[cell.col];
         if (!el) return;
         el.classList.add('is-path');
@@ -844,11 +967,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       convertPreview = [];
     }
     syncRecolor(next);
-    if (!pendingConvert) {
-      const show =
-        next && pathUsesConvert(next, colors) ? next.cells.length : 0;
-      paintConvertCount(show, lastLocal);
-    }
+    paintConvertCount(0, null);
     paintPieces();
     ensureLoop();
   };
@@ -985,10 +1104,10 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
           acc: 0,
           loc: { x: lastLocal.x, y: lastLocal.y },
           holding: false,
+          emptyTick: null,
         };
         extraKeys.clear();
         lastDipHover = null;
-        paintConvertCount(pendingConvert.shown, pendingConvert.loc);
         paintPieces();
         paintHud();
         ensureLoop();
@@ -1094,6 +1213,37 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       aimHud(scoreRoll.committed);
     },
   });
+
+  const tickBadgeSize = (dt: number): boolean => {
+    const tail = path && path.cells.length ? path.cells[path.cells.length - 1] : undefined;
+    const cap = pendingConvert ? pendingConvert.shown : 999;
+    let busy = false;
+    const ids = new Set(badgeMo.keys());
+    for (const id of pathBadgeEls.keys()) ids.add(id);
+    for (const id of ids) {
+      const live = sim.pieces.get(id);
+      if (!live || live.state === 'clearing') {
+        badgeMo.delete(id);
+        continue;
+      }
+      const row = live.destRow ?? live.sourceRow;
+      const key = `${row},${live.col}`;
+      const order = pathOrder.get(key);
+      const keep = order != null && order <= cap && pathKeys.has(key);
+      const now = keep
+        ? pendingConvert
+          ? order === pendingConvert.shown
+          : !!tail && tail.row === row && tail.col === live.col
+        : false;
+      const next = tickBadgeMotion(badgeMo.get(id), badgeTargetPx(keep, now), dt);
+      if (!next) badgeMo.delete(id);
+      else {
+        badgeMo.set(id, next);
+        if (next.t < 1) busy = true;
+      }
+    }
+    return busy;
+  };
 
   const tickPressPop = (dt: number): boolean => {
     const step = Math.min(dt, 1 / 30);
@@ -1273,13 +1423,22 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     if (keep) paintHud();
     if (pendingConvert) {
       pendingConvert.acc += dt;
-      const tick = FEEL.convert.tickSec;
+      if (
+        pendingConvert.emptyTick == null &&
+        pendingConvert.queue.length === 0 &&
+        pendingConvert.shown > 0
+      ) {
+        pendingConvert.emptyTick = FEEL.convert.tickEmptySpan / pendingConvert.shown;
+      }
+      const tick =
+        pendingConvert.queue.length > 0
+          ? FEEL.convert.tickSec
+          : (pendingConvert.emptyTick ?? FEEL.convert.tickSec);
       while (pendingConvert.shown > 0 && pendingConvert.acc >= tick) {
         pendingConvert.acc -= tick;
         pendingConvert.shown -= 1;
         const cell = pendingConvert.queue.shift();
         if (cell) pickConvertExtra(cell);
-        paintConvertCount(pendingConvert.shown, pendingConvert.loc);
       }
       if (pendingConvert.shown <= 0) {
         for (const cell of pendingConvert.queue) pickConvertExtra(cell);
@@ -1297,6 +1456,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       }
     }
     const popping = tickPressPop(dt);
+    const badgeSizing = tickBadgeSize(dt);
     const dipping = tickDip(dt);
     const dimming = tickDim(dt);
     const glowing = tickExtraGlow(dt);
@@ -1351,7 +1511,16 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       });
       colors = stableColors(sim);
     }
-    if (dropping || popping || dimming || dipping || glowing || recoloring) {
+    if (
+      dropping ||
+      popping ||
+      dimming ||
+      dipping ||
+      glowing ||
+      recoloring ||
+      badgeSizing ||
+      pendingConvert
+    ) {
       paintPieces();
       keep = true;
     }
