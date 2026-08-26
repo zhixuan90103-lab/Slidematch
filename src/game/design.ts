@@ -98,6 +98,16 @@ export const FEEL = {
     recolorScale: 1.35,
     /** 魔法翻牌按圈扩散：每圈（切比雪夫）延迟。 */
     rippleStepSec: 0.05,
+    /** 魔法消除：金币飞向 SCORE 的时长 / 错开 / 弧高 / 终点缩放。 */
+    scoreFlySec: 0.48,
+    /** 飞向 SCORE：同一飞行速度；行与行错开，同行内列只差一点点。 */
+    scoreFlyRowStagger: 0.07,
+    scoreFlyColStagger: 0.01,
+    scoreFlyArc: 12,
+    /** 飞向 SCORE 缩放：前 1/3 放大，后 2/3 收到 0.4。 */
+    scoreFlyStartScale: 1,
+    scoreFlyPeakScale: 1.15,
+    scoreFlyEndScale: 0.4,
     /** 松手选中散子：停住比路径更大，过冲更大。 */
     scale: 1.1,
     lift: 9,

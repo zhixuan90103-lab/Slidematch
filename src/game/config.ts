@@ -232,3 +232,12 @@ export function goldSpinSrc(u: number, reverse: boolean): string {
   const i = Math.min(n - 1, Math.floor(t * n));
   return loop[i] ?? GOLD_SRC;
 }
+
+/** 飞向分数：金币 yaw 循环。u 为已过圈数（可 >1）。 */
+export function goldSpinLoopSrc(u: number): string {
+  const n = GOLD_SPIN.length;
+  if (!n) return GOLD_SRC;
+  const t = u - Math.floor(u);
+  const i = Math.min(n - 1, Math.floor(t * n));
+  return GOLD_SPIN[i] ?? GOLD_SRC;
+}

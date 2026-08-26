@@ -387,6 +387,16 @@ body.native-app #shell {
   pointer-events: none;
 }
 
+.score-fly-coin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 8;
+  pointer-events: none;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 1px rgba(90, 55, 80, 0.42));
+}
+
 .clear-spark {
   position: absolute;
   left: 0;

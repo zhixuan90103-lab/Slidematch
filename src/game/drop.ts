@@ -313,6 +313,7 @@ function placeItem(sim: DropSim, cell: Cell, color: number, magic: boolean, path
 export type ClearOpts = {
   extraCells?: Cell[];
   spawnColor?: number | null;
+  cellDelay?: (cell: Cell) => number;
 };
 
 export function beginClear(sim: DropSim, cells: Cell[], opts: ClearOpts = {}): void {
@@ -333,7 +334,9 @@ export function beginClear(sim: DropSim, cells: Cell[], opts: ClearOpts = {}): v
     seen.add(k);
     markClearing(sim, cell, delay, useGather ? gather : undefined);
   };
-  cells.forEach((cell, i) => add(cell, spawn ? i * stagger : 0, spawn));
+  cells.forEach((cell, i) =>
+    add(cell, opts.cellDelay?.(cell) ?? (spawn ? i * stagger : 0), spawn),
+  );
   if (opts.extraCells) {
     const extraStagger = FEEL.clear.extraStagger;
     opts.extraCells.forEach((cell, i) => {

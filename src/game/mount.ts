@@ -12,6 +12,7 @@ import {
   convertRecolorSrc,
   convertRecolorSec,
   goldSpinSrc,
+  goldSpinLoopSrc,
   GOLD_SRC,
   convertRecolorScale,
   coinAppearMotion,
@@ -187,6 +188,20 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   const pieceEls = new Map<number, HTMLImageElement>();
   const glowEls = new Map<number, HTMLImageElement>();
   const coinEls = new Map<number, HTMLImageElement>();
+  type ScoreFly = {
+    el: HTMLImageElement;
+    pieceId: number;
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+    t: number;
+    sec: number;
+    delay: number;
+    w: number;
+    h: number;
+  };
+  const scoreFlies: ScoreFly[] = [];
   const imgPool: HTMLImageElement[] = [];
   const cellEls: HTMLDivElement[][] = [];
   const lastPath: HTMLDivElement[] = [];
@@ -429,8 +444,12 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const coinDue = !rec || rec.t >= coinDelay;
     const coinFade =
       leavingBlank ? 1 - Math.min(1, Math.max(0, goldU) / flipOutU) : 1;
+    const waitingFly = scoreFlies.some((f) => f.pieceId === piece.id && f.t < f.delay);
     const wantCoin =
-      (leavingBlank && coinFade > 0.02) || ((goingBlank || shown === COIN_LOOK) && coinDue);
+      (piece.state !== 'clearing' || waitingFly) &&
+      ((leavingBlank && coinFade > 0.02) ||
+        ((goingBlank || shown === COIN_LOOK) && coinDue) ||
+        waitingFly);
     let coin = coinEls.get(piece.id);
     if (wantCoin && fade > 0.08) {
       if (!coin) {
@@ -709,9 +728,114 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     }
   };
 
+  const scoreTargetInUi = (): { x: number; y: number } => {
+    const uiRect = uiRoot.getBoundingClientRect();
+    const hudRect = hud.getBoundingClientRect();
+    const sx = uiRect.width > 0 ? DESIGN_WIDTH / uiRect.width : 1;
+    const sy = uiRect.height > 0 ? DESIGN_HEIGHT / uiRect.height : 1;
+    return {
+      x: (hudRect.left + hudRect.width / 2 - uiRect.left) * sx,
+      y: (hudRect.top + hudRect.height / 2 - uiRect.top) * sy,
+    };
+  };
+
+  const magicClearDelay = (cells: Cell[]): ((cell: Cell) => number) => {
+    const ordered = cells.slice().sort((a, b) => a.row - b.row || a.col - b.col);
+    const rowRank = new Map<number, number>();
+    for (const cell of ordered) {
+      if (!rowRank.has(cell.row)) rowRank.set(cell.row, rowRank.size);
+    }
+    return (cell: Cell) =>
+      (rowRank.get(cell.row) ?? 0) * FEEL.convert.scoreFlyRowStagger +
+      cell.col * FEEL.convert.scoreFlyColStagger;
+  };
+
+  const spawnScoreFlies = (cells: Cell[]) => {
+    const dest = scoreTargetInUi();
+    const boardLeft = Number.parseFloat(board.style.left || '0') || 0;
+    const boardTop = Number.parseFloat(board.style.top || '0') || 0;
+    const w = layout.pieceW * FEEL.convert.coinScale;
+    const h = layout.pieceH * FEEL.convert.coinScale;
+    const delayOf = magicClearDelay(cells);
+    const ordered = cells.slice().sort((a, b) => a.row - b.row || a.col - b.col);
+    ordered.forEach((cell) => {
+      const p = sim.slots[cell.row]![cell.col]!.current;
+      if (!p || p.state !== 'stable') return;
+      const el = document.createElement('img');
+      el.className = 'score-fly-coin';
+      el.alt = '';
+      el.draggable = false;
+      el.src = GOLD_SRC;
+      el.style.width = `${w}px`;
+      el.style.height = `${h}px`;
+      uiRoot.append(el);
+      scoreFlies.push({
+        el,
+        pieceId: p.id,
+        x0: boardLeft + layout.gridLeft + pieceLeft(p.col) + layout.pieceW / 2,
+        y0: boardTop + layout.gridTop + pieceTop(p.visualY) + layout.pieceH / 2,
+        x1: dest.x,
+        y1: dest.y,
+        t: 0,
+        sec: FEEL.convert.scoreFlySec,
+        delay: delayOf(cell),
+        w,
+        h,
+      });
+    });
+  };
+
+  const tickScoreFlies = (dt: number): boolean => {
+    if (!scoreFlies.length) return false;
+    const arc = FEEL.convert.scoreFlyArc;
+    const spin = FEEL.convert.coinSpinSec;
+    for (let i = scoreFlies.length - 1; i >= 0; i--) {
+      const fly = scoreFlies[i]!;
+      fly.t += dt;
+      const local = fly.t - fly.delay;
+      if (local < 0) {
+        fly.el.style.opacity = '0';
+        continue;
+      }
+      const u = Math.min(1, local / fly.sec);
+      const src = goldSpinLoopSrc(local / spin);
+      if (fly.el.dataset.src !== src) {
+        fly.el.dataset.src = src;
+        fly.el.src = src;
+      }
+      const k = 1 - (1 - u) * (1 - u);
+      const x = fly.x0 + (fly.x1 - fly.x0) * k;
+      const y = fly.y0 + (fly.y1 - fly.y0) * k - Math.sin(Math.PI * u) * arc;
+      const s0 = FEEL.convert.scoreFlyStartScale;
+      const sPeak = FEEL.convert.scoreFlyPeakScale;
+      const s1 = FEEL.convert.scoreFlyEndScale;
+      let s: number;
+      if (u < 1 / 3) {
+        const k = u / (1 / 3);
+        s = s0 + (sPeak - s0) * (1 - (1 - k) * (1 - k));
+      } else {
+        const k = (u - 1 / 3) / (2 / 3);
+        s = sPeak + (s1 - sPeak) * (k * k);
+      }
+      fly.el.style.opacity = '1';
+      fly.el.style.transform = `translate3d(${x - fly.w / 2}px,${y - fly.h / 2}px,0) scale(${s})`;
+      fly.el.style.transformOrigin = 'center center';
+      if (u >= 1) {
+        fly.el.remove();
+        scoreFlies.splice(i, 1);
+      }
+    }
+    return scoreFlies.length > 0;
+  };
+
   const commitClear = (cells: Cell[], settle: StrokeResolve) => {
+    const magicClear = board.classList.contains('is-magic-look');
     stampClearLook(cells.concat(settle.extraCells));
-    beginClear(sim, cells, settle);
+    if (magicClear) spawnScoreFlies(cells);
+    beginClear(sim, cells, {
+      ...settle,
+      cellDelay: magicClear ? magicClearDelay(cells) : undefined,
+    });
     void haptics.impact('medium');
     snapRecolorOff(cells.concat(settle.extraCells));
     path = null;
@@ -1056,6 +1180,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const dimming = tickDim(dt);
     const glowing = tickExtraGlow(dt);
     const recoloring = tickRecolor(dt);
+    if (tickScoreFlies(dt)) keep = true;
     const dropping = needsTick(sim);
     if (dropping) {
       tickDrop(sim, dt, {
@@ -1066,6 +1191,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         dropVMax: tune.dropVMax,
         onPieceCleared: (piece) => {
           if (piece.flySec > 0) return;
+          if (piece.clearLook === COIN_LOOK) return;
           const shown = piece.clearLook >= 0 ? piece.clearLook : piece.color;
           const popK = popT.get(piece.id) ?? 0;
           const clear = clearMotion(1);
