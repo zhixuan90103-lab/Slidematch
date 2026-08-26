@@ -60,9 +60,11 @@
 | `piece-star.png` | 紫星（包内有，盘面不用） | 360×430 透明底 |
 | `piece-convert.png` | 变色子静图（彩虹漩涡糖） | 360×430 透明底 |
 | `fx-preview/yaw-2d/convert/` | 变色子弹出放大阶段 yaw（00–06、19–23） | 360×430；峰值后切回静图 |
+| `fx-preview/yaw-2d/magic/` | 魔法子弹出放大阶段 yaw（00–06、19–23） | 360×430；峰值后切回静图 |
 | `fx-preview/yaw-2d/{drop,leaf,sun}/` | 换锁色翻牌 yaw | 360×430，与静图同画幅 |
 | `piece-magic.png` | 魔法子（金币） | 360×430 透明底 |
-| `coin.png` | 金币（独立正面，未接线） | 360×430 透明底 |
+| `coin.png` | 魔法滑动叠在白板上的金币正面 | 360×430 透明底 |
+| `fx-preview/yaw-2d/magic_bai/` | 魔法滑动全盘白板 yaw（00–06、19–23） | 360×430；翻完用 00 当静图 |
 | `fonts/Inter-800.woff2` | SCORE / 设置标题 | ExtraBold |
 
 盘面三色：水滴 / 叶 / 太阳。道具：变色 / 魔法。  

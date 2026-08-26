@@ -383,6 +383,10 @@ body.native-app #shell {
   pointer-events: none;
 }
 
+.board-piece.is-coin-overlay {
+  pointer-events: none;
+}
+
 .clear-spark {
   position: absolute;
   left: 0;

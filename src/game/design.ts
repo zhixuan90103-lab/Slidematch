@@ -80,8 +80,24 @@ export const FEEL = {
     markGlow: 0.1,
     /** 路径普通子换锁色：yaw 翻面时长。 */
     recolorSec: 0.2,
+    /** 魔法取消翻回时长。 */
+    recolorBackSec: 0.3,
+    /** 金币出场结束时的缩放。 */
+    coinScale: 0.9,
+    coinScaleFrom: 0.4,
+    coinScaleMax: 1.2,
+    /** 金币放大时上浮（px）。回落带落地回弹。 */
+    coinLift: 8,
+    /** 金币 yaw 一遍时长（停在默认金币图）。 */
+    coinSpinSec: 0.4,
+    /** 金币翻面相对底板翻面的延迟。 */
+    coinDelaySec: 0.1,
+    /** 淡入在金币播放进度的这一处完成（1 = 整段播完才淡满）。 */
+    coinFadeEnd: 0.5,
     /** 翻牌：1 → 放大 → 1，峰值在侧棱（绕中心）。 */
     recolorScale: 1.35,
+    /** 魔法翻牌按圈扩散：每圈（切比雪夫）延迟。 */
+    rippleStepSec: 0.05,
     /** 松手选中散子：停住比路径更大，过冲更大。 */
     scale: 1.1,
     lift: 9,
@@ -126,7 +142,7 @@ export const FEEL = {
   },
 } as const;
 
-/** 碎屑颜色与棋子主体一致：0 水滴 1 叶 2 太阳 5 变色 6 魔法。 */
+/** 碎屑颜色：0 水滴 1 叶 2 太阳 5 变色 6 魔法 7 白板外观。 */
 export const PIECE_FX_COLOR = [
   '#62b4f2',
   '#8ed65e',
@@ -135,6 +151,7 @@ export const PIECE_FX_COLOR = [
   '#b08ae0',
   '#f0c0d4',
   '#f0c44a',
+  '#f3e4ea',
 ] as const;
 
 export function clearMotion(u: number): {
@@ -190,6 +207,26 @@ export function gatherMotion(u: number): {
     opacity: 1,
     glow: 1.8 * (1 - t),
   };
+}
+
+/** 金币出场：一条曲线 0.4 → 1.2 → 0.9，上浮同曲线；后段带落地回弹。 */
+export function coinAppearMotion(u: number): { opacity: number; scale: number; lift: number } {
+  const from = FEEL.convert.coinScaleFrom;
+  const peak = FEEL.convert.coinScaleMax;
+  const rest = FEEL.convert.coinScale;
+  const up = FEEL.convert.coinLift;
+  if (u <= 0) return { opacity: 0, scale: from, lift: 0 };
+  if (u >= 1) return { opacity: 1, scale: rest, lift: 0 };
+  const t = Math.min(1, Math.max(0, u));
+  const fadeEnd = Math.max(0.05, FEEL.convert.coinFadeEnd);
+  const fadeT = Math.min(1, t / fadeEnd);
+  const fade = fadeT * fadeT * (3 - 2 * fadeT);
+  const bump = 4 * t * (1 - t);
+  const mid = (from + rest) / 2;
+  const bounce = Math.sin(Math.PI * 2 * t) * t * t;
+  const scale = from + (rest - from) * t + (peak - mid) * bump + 0.06 * bounce;
+  const lift = up * bump + up * 0.12 * bounce;
+  return { opacity: fade, scale, lift };
 }
 
 /** 翻牌缩放：绕图片中心。两端 1，侧棱（u=0.5）最大，避免窄帧看起来缩一圈。 */

@@ -7,13 +7,20 @@ import {
   gatherMotion,
   itemPopMotion,
   convertPopYawSrc,
+  magicPopYawSrc,
   convertRecolorShown,
   convertRecolorSrc,
+  convertRecolorSec,
+  goldSpinSrc,
+  GOLD_SRC,
   convertRecolorScale,
+  coinAppearMotion,
+  CONVERT_RECOLOR_IN,
+  CONVERT_RECOLOR_OUT,
+  COIN_LOOK,
   FRAME_SLICE,
-  MAGIC_COLOR,
   PATH_MIN,
-  PIECE_SRC,
+  pieceSrc,
   ROWS,
   STAGE,
   clampPieceDpr,
@@ -38,13 +45,18 @@ import { disposeClearFx, spawnClearBurst, tickClearFx } from './clearFx';
 import { bindSwipeInput } from './input';
 import { haptics } from '../utils/haptics';
 import {
-  displayColor,
   extraClearCells,
   pathUsesConvert,
   resolveStroke,
   type StrokeResolve,
 } from './items';
-import { recolorLock, recolorWant, type RecolorFx } from './convertLook';
+import {
+  chebyshev,
+  firstMagicCell,
+  recolorLock,
+  recolorWant,
+  type RecolorFx,
+} from './convertLook';
 import { commitStroke, createScoreRoll, linkPreview, setScoreTarget, strokeScore, tickScoreRoll } from './score';
 import {
   beginPath,
@@ -166,12 +178,15 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
 
 
     for (const img of pieceEls.values()) setPieceBitmapSize(img);
+    for (const img of glowEls.values()) setPieceBitmapSize(img);
+    for (const img of coinEls.values()) setPieceBitmapSize(img);
     for (const img of imgPool) setPieceBitmapSize(img);
     paintPieces();
   };
 
   const pieceEls = new Map<number, HTMLImageElement>();
   const glowEls = new Map<number, HTMLImageElement>();
+  const coinEls = new Map<number, HTMLImageElement>();
   const imgPool: HTMLImageElement[] = [];
   const cellEls: HTMLDivElement[][] = [];
   const lastPath: HTMLDivElement[] = [];
@@ -236,7 +251,15 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   };
 
   const releaseImg = (el: HTMLImageElement) => {
-    el.classList.remove('is-additive-glow', 'is-dim', 'is-clearing', 'is-convert', 'is-magic', 'is-lifted');
+    el.classList.remove(
+      'is-additive-glow',
+      'is-coin-overlay',
+      'is-dim',
+      'is-clearing',
+      'is-convert',
+      'is-magic',
+      'is-lifted',
+    );
     el.hidden = true;
     el.style.opacity = '';
     el.style.filter = '';
@@ -267,24 +290,28 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       el = acquireImg();
       pieceEls.set(piece.id, el);
     }
+    const rec = recolorFx.get(piece.id);
+    const recU = rec ? rec.t / convertRecolorSec(rec.from, rec.to) : 1;
     const shown =
       piece.state === 'clearing' && piece.clearLook >= 0
         ? piece.clearLook
-        : displayColor(piece.color, board.classList.contains('is-magic-look'));
+        : rec
+          ? convertRecolorShown(rec.from, rec.to, recU)
+          : piece.color;
     const poppingIn = piece.itemPopSec > 0 && piece.itemPopT < piece.itemPopSec;
     const popU = piece.itemPopSec > 0 ? piece.itemPopT / piece.itemPopSec : 1;
     const popIn =
       piece.itemPopSec > 0 ? itemPopMotion(popU, piece.itemPopAmp) : null;
-    const rec = recolorFx.get(piece.id);
-    const recU = rec ? rec.t / FEEL.convert.recolorSec : 1;
-    const recSrc =
-      rec && recU < 1 && !isMagicColor(shown) ? convertRecolorSrc(rec.from, rec.to, recU) : null;
-    const recStill = rec && recU >= 1 && !isMagicColor(shown) ? PIECE_SRC[rec.to] : null;
-    const yawSrc =
-      poppingIn && isConvertColor(piece.color) && !isMagicColor(shown)
-        ? convertPopYawSrc(popU, piece.itemPopAmp)
-        : null;
-    const src = yawSrc ?? recSrc ?? recStill ?? PIECE_SRC[shown]!;
+    const recSrc = rec && recU < 1 ? convertRecolorSrc(rec.from, rec.to, recU) : null;
+    const recStill = rec && recU >= 1 ? pieceSrc(rec.to) : null;
+    const yawSrc = poppingIn
+      ? isMagicColor(piece.color)
+        ? magicPopYawSrc(popU, piece.itemPopAmp)
+        : isConvertColor(piece.color)
+          ? convertPopYawSrc(popU, piece.itemPopAmp)
+          : null
+      : null;
+    const src = yawSrc ?? recSrc ?? recStill ?? pieceSrc(shown);
     if (el.dataset.src !== src) {
       el.dataset.src = src;
       el.src = src;
@@ -346,7 +373,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     );
     el.classList.toggle('is-clearing', piece.state === 'clearing');
     el.classList.toggle('is-convert', isConvertColor(piece.color) && !isMagicColor(shown));
-    el.classList.toggle('is-magic', isMagicColor(shown));
+    el.classList.toggle('is-magic', isMagicColor(shown) || shown === COIN_LOOK);
     el.classList.toggle('is-dim', dimAmt > 0.02);
     el.classList.toggle('is-lifted', popK > 0);
     const z = gather
@@ -386,20 +413,75 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       releaseImg(glow);
       glowEls.delete(piece.id);
     }
+
+    const coinDelay = FEEL.convert.coinDelaySec;
+    const goingBlank = !!rec && rec.to === COIN_LOOK;
+    const leavingBlank = !!rec && rec.from === COIN_LOOK && rec.to !== COIN_LOOK;
+    const goldU = rec
+      ? goingBlank
+        ? (rec.t - coinDelay) / FEEL.convert.coinSpinSec
+        : leavingBlank
+          ? rec.t / convertRecolorSec(rec.from, rec.to)
+          : 1
+      : 1;
+    const flipOutU =
+      CONVERT_RECOLOR_OUT / Math.max(1, CONVERT_RECOLOR_OUT + CONVERT_RECOLOR_IN);
+    const coinDue = !rec || rec.t >= coinDelay;
+    const coinFade =
+      leavingBlank ? 1 - Math.min(1, Math.max(0, goldU) / flipOutU) : 1;
+    const wantCoin =
+      (leavingBlank && coinFade > 0.02) || ((goingBlank || shown === COIN_LOOK) && coinDue);
+    let coin = coinEls.get(piece.id);
+    if (wantCoin && fade > 0.08) {
+      if (!coin) {
+        coin = acquireImg();
+        coin.classList.add('is-coin-overlay');
+        coinEls.set(piece.id, coin);
+      }
+      const goldSrc =
+        rec && goldU < 1 && goldU >= 0 ? goldSpinSrc(goldU, leavingBlank) : GOLD_SRC;
+      if (coin.dataset.src !== goldSrc) {
+        coin.dataset.src = goldSrc;
+        coin.src = goldSrc;
+      }
+      const appearU = Math.min(1, Math.max(0, goldU));
+      const appear = leavingBlank
+        ? { opacity: coinFade, scale: 1, lift: 0 }
+        : coinAppearMotion(appearU);
+      setPieceBitmapSize(coin);
+      const coinOp = opacity * appear.opacity;
+      coin.style.opacity = coinOp === 1 ? '' : String(coinOp);
+      const coinS = recPulse * appear.scale;
+      coin.style.transform = pieceLayerTransform(
+        x,
+        y - liftY - appear.lift,
+        piece.scaleX * popS * clearS * popScale,
+        piece.scaleY * popS * clearS * popScale,
+        layout.pieceW,
+        layout.pieceH,
+        pieceDpr(),
+        wobble + popRot,
+        coinS,
+      );
+      coin.style.zIndex = String(12 + z);
+      if (coin.parentElement !== host) host.append(coin);
+    } else if (coin) {
+      coin.classList.remove('is-coin-overlay');
+      releaseImg(coin);
+      coinEls.delete(piece.id);
+    }
     return el;
   };
 
   const recolorVisualOf = (piece: Piece): number => {
     const rec = recolorFx.get(piece.id);
     if (!rec) return piece.color;
-    return convertRecolorShown(rec.from, rec.to, rec.t / FEEL.convert.recolorSec);
+    return convertRecolorShown(rec.from, rec.to, rec.t / convertRecolorSec(rec.from, rec.to));
   };
 
-  const retargetRecolor = (piece: Piece, want: number) => {
-    if (isItemColor(piece.color)) {
-      recolorFx.delete(piece.id);
-      return;
-    }
+  let magicOrigin: { row: number; col: number } | null = null;
+
+  const retargetRecolor = (piece: Piece, want: number, delaySec: number) => {
     const rec = recolorFx.get(piece.id);
     if (rec && !rec.done && rec.to === want) return;
     const vis = recolorVisualOf(piece);
@@ -409,54 +491,83 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         recolorFx.set(piece.id, {
           from: want,
           to: want,
-          t: FEEL.convert.recolorSec,
+          t: convertRecolorSec(want, want),
           done: true,
         });
       }
       return;
     }
-    recolorFx.set(piece.id, { from: vis, to: want, t: 0, done: false });
+    recolorFx.set(piece.id, { from: vis, to: want, t: -Math.max(0, delaySec), done: false });
   };
 
   /** 滑动中：锁色变则播翻面；回退反向。提交消除时不要走这里，用 snap 掉。 */
   const syncRecolor = (next: PathState | null) => {
+    const magicLook = !!next?.magic;
+    if (next?.magic) {
+      const at = firstMagicCell(next, colors);
+      if (at) magicOrigin = at;
+    }
     const lock = recolorLock(next, colors);
     const onPath = new Set<string>();
     if (lock >= 0 && next) {
       for (const cell of next.cells) onPath.add(`${cell.row},${cell.col}`);
     }
+    const step = FEEL.convert.rippleStepSec;
     for (const piece of sim.pieces.values()) {
       if (piece.state === 'clearing') continue;
       const row = piece.destRow ?? piece.sourceRow;
-      const want = recolorWant(piece, lock, onPath.has(`${row},${piece.col}`));
-      retargetRecolor(piece, want);
+      const want = recolorWant(piece, lock, onPath.has(`${row},${piece.col}`), magicLook);
+      const delay =
+        want === COIN_LOOK && magicOrigin
+          ? chebyshev({ row, col: piece.col }, magicOrigin) * step
+          : 0;
+      retargetRecolor(piece, want, delay);
     }
     for (const id of [...recolorFx.keys()]) {
       if (!sim.pieces.has(id)) recolorFx.delete(id);
     }
+    if (!magicLook) {
+      let hold = false;
+      for (const rec of recolorFx.values()) {
+        if (rec.from === COIN_LOOK || rec.to === COIN_LOOK) {
+          hold = true;
+          break;
+        }
+      }
+      if (!hold) magicOrigin = null;
+    }
   };
 
-  const snapRecolorOff = () => {
-    recolorFx.clear();
+  const snapRecolorOff = (cells: Cell[] = []) => {
+    if (!cells.length) {
+      recolorFx.clear();
+      return;
+    }
+    const keys = new Set(cells.map((c) => `${c.row},${c.col}`));
+    for (const piece of sim.pieces.values()) {
+      const row = piece.destRow ?? piece.sourceRow;
+      if (keys.has(`${row},${piece.col}`)) recolorFx.delete(piece.id);
+    }
   };
 
   const tickRecolor = (dt: number): boolean => {
     let any = false;
-    const sec = FEEL.convert.recolorSec;
+    const secFor = (rec: RecolorFx) => convertRecolorSec(rec.from, rec.to);
     for (const [id, rec] of recolorFx) {
       if (!sim.pieces.has(id)) {
         recolorFx.delete(id);
         continue;
       }
-      if (rec.done) continue;
       rec.t += dt;
-      if (rec.t >= sec) {
-        rec.t = sec;
-        rec.done = true;
+      const sec = secFor(rec);
+      if (!rec.done && rec.t >= sec) rec.done = true;
+      const spinEnd =
+        rec.to === COIN_LOOK ? FEEL.convert.coinDelaySec + FEEL.convert.coinSpinSec : sec;
+      if (rec.done && rec.t >= spinEnd) {
         const piece = sim.pieces.get(id);
         if (piece && rec.to === piece.color) recolorFx.delete(id);
       }
-      any = true;
+      if (!rec.done || rec.t < spinEnd) any = true;
     }
     return any;
   };
@@ -474,6 +585,12 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       el.classList.remove('is-additive-glow');
       releaseImg(el);
       glowEls.delete(id);
+    }
+    for (const [id, el] of coinEls) {
+      if (sim.pieces.has(id)) continue;
+      el.classList.remove('is-coin-overlay');
+      releaseImg(el);
+      coinEls.delete(id);
     }
   };
 
@@ -575,9 +692,9 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   };
 
   const lookColorNow = (piece: Piece): number => {
-    if (board.classList.contains('is-magic-look')) return MAGIC_COLOR;
+    if (board.classList.contains('is-magic-look')) return COIN_LOOK;
     const rec = recolorFx.get(piece.id);
-    if (rec) return convertRecolorShown(rec.from, rec.to, rec.t / FEEL.convert.recolorSec);
+    if (rec) return convertRecolorShown(rec.from, rec.to, rec.t / convertRecolorSec(rec.from, rec.to));
     return piece.color;
   };
 
@@ -596,7 +713,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     stampClearLook(cells.concat(settle.extraCells));
     beginClear(sim, cells, settle);
     void haptics.impact('medium');
-    snapRecolorOff();
+    snapRecolorOff(cells.concat(settle.extraCells));
     path = null;
     lastLocal = null;
     extraKeys.clear();
@@ -743,6 +860,9 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         if (pathKeys.has(`${pieceRow},${piece.col}`)) want.add(piece.id);
         else if (pendingConvert && extraKeys.has(`${pieceRow},${piece.col}`)) want.add(piece.id);
       }
+    }
+    for (const [id, rec] of recolorFx) {
+      if (rec.t >= 0 && rec.t < convertRecolorSec(rec.from, rec.to)) want.add(id);
     }
     let busy = false;
     const ids = new Set(popT.keys());

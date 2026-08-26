@@ -7,6 +7,7 @@ import { inBounds, NEIGHBOR4, type Cell } from './board';
 import {
   COLS,
   CONVERT_COLOR,
+  COIN_LOOK,
   ITEM_MIN,
   MAGIC_COLOR,
   MAGIC_MIN,
@@ -28,7 +29,7 @@ export type StrokeResolve = {
 };
 
 export function displayColor(color: number, magicLook: boolean): number {
-  return magicLook ? MAGIC_COLOR : color;
+  return magicLook ? COIN_LOOK : color;
 }
 
 export function cellColorAt(colors: number[][], cell: Cell): number {
@@ -52,8 +53,9 @@ export function pathUsesConvert(path: StrokePath, colors: number[][]): boolean {
 }
 
 export function spawnColorForStroke(path: StrokePath, colors: number[][]): number | null {
-  if (pathUsesItem(path, colors)) return null;
+  if (pathUsesMagic(path, colors)) return null;
   if (path.cells.length >= MAGIC_MIN) return MAGIC_COLOR;
+  if (pathUsesConvert(path, colors)) return null;
   if (path.cells.length >= ITEM_MIN) return CONVERT_COLOR;
   return null;
 }
