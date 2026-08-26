@@ -28,7 +28,9 @@ src/game/score.ts      累计分 / n² / 道具倍率
 src/game/clearFx.ts    消除碎屑
 src/game/settings.ts   调参与 layout
 src/game/board.ts      点中、初盘保证 ≥ PATH_MIN 连通
-src/game/mount.ts      DOM、选中、变色气泡、合成飞入
+src/game/mount.ts      DOM、选中、变色气泡、合成飞入、魔法两层
+src/game/convertLook.ts 换锁色 / 魔法白板显示
+src/game/scoreFly.ts   魔法金币飞向 SCORE
 src/assets/            见 BOARD.md
 ```
 

@@ -64,7 +64,8 @@ stable 格 ≥ `pathMin` 才结算。滑动中不消、不出道具。
 | 文件 | 职责 |
 |------|------|
 | `src/game/items.ts` | 生成、散消、显示色、`resolveStroke` |
-| `src/game/convertLook.ts` | 换锁色显示：锁色、want、生命周期 |
+| `src/game/convertLook.ts` | 换锁色/魔法白板：锁色、want、扩散原点 |
+| `src/game/scoreFly.ts` | 魔法路径金币飞向 SCORE |
 | `src/game/path.ts` | 四邻加/减；`canLinkColor` / `applyLinkColor` |
 | `src/game/mount.ts` | 抬手一次 resolve；变色气泡/标记；合成飞入；魔法贴图 |
 | `src/game/drop.ts` | 消格、飞入腾格、道具格锁定；不解释道具语义 |

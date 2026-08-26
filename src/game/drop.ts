@@ -77,6 +77,8 @@ export type DropSim = {
   pendingItem: { cell: Cell; color: number; magic: boolean; pathLen: number } | null;
   /** 路径飞入格一起腾格的时刻。 */
   vacateAt: number | null;
+  /** 顶补普通色种数（随分数 3→5）。 */
+  colorCount: number;
 };
 
 export type DropMetrics = {
@@ -213,6 +215,7 @@ export function createDropSim(colors: number[][]): DropSim {
     dropVMax: DROP_V_MAX,
     pendingItem: null,
     vacateAt: null,
+    colorCount: COLOR_COUNT,
   };
 }
 
@@ -397,7 +400,8 @@ function isItemPopping(piece: Piece): boolean {
 function trySpawn(sim: DropSim): void {
   for (let col = 0; col < COLS; col++) {
     if (!canReceiveDrop(sim, 0, col)) continue;
-    const piece = acquirePiece(Math.floor(Math.random() * COLOR_COUNT), col, -1);
+    const n = Math.max(1, sim.colorCount);
+    const piece = acquirePiece(Math.floor(Math.random() * n), col, -1);
     piece.state = 'spawning';
     piece.vy = dropVSpawn(sim);
     sim.pieces.set(piece.id, piece);

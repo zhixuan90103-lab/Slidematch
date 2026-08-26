@@ -45,12 +45,14 @@ index.html
 
 震动插件不会随 `cap:sync` 自动注册。第一次 / 改插件必须 `ios:bootstrap`。见 [HAPTICS.md §0](./HAPTICS.md)。
 
+`?preview=0|1` · `?debugFit=1` · `?debugPerf=1`（帧时日志叠层，见 [PERF.md](./PERF.md)）
+
 ## 改哪里
 
 | 要改 | 文件 |
 |------|------|
 | 视觉/规则默认 | `src/game/design.ts`（`LOOK` / `PIECE_DRAW` / `RULES` / `FEEL`） |
-| 选中/消除/变色/合成反馈 | [FEEDBACK.md](./FEEDBACK.md) · `FEEL` · `clearFx.ts` · `mount.ts` |
+| 选中/消除/变色/合成反馈 | [FEEDBACK.md](./FEEDBACK.md) · `FEEL` · `clearFx.ts` · `mount.ts` · `convertLook.ts` · `scoreFly.ts` |
 | 调参覆盖 | `src/game/settings.ts`；HUD 齿轮 → `#settings-root` |
 | 素材 | `src/assets/` · [BOARD.md](./BOARD.md) |
 | 道具生成/结算 | `src/game/items.ts` · [ITEMS.md](./ITEMS.md) |

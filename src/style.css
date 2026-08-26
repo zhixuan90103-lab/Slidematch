@@ -362,13 +362,14 @@ body.native-app #shell {
   z-index: 1;
   width: var(--piece-w, 56px);
   height: var(--piece-h, 67px);
-  object-fit: contain;
+  overflow: hidden;
   color-scheme: light;
   pointer-events: none;
   user-select: none;
   transform-origin: 0 0;
   border-radius: 0;
-  background: none;
+  background-color: transparent;
+  background-repeat: no-repeat;
   box-shadow: none;
   filter: drop-shadow(0 3px 1px rgba(90, 55, 80, 0.42));
   will-change: transform;
@@ -383,7 +384,8 @@ body.native-app #shell {
   pointer-events: none;
 }
 
-.board-piece.is-coin-overlay {
+.board-piece.is-coin-overlay,
+.board-piece.is-blank-overlay {
   pointer-events: none;
 }
 
@@ -393,7 +395,8 @@ body.native-app #shell {
   top: 0;
   z-index: 8;
   pointer-events: none;
-  object-fit: contain;
+  overflow: hidden;
+  background-repeat: no-repeat;
   filter: drop-shadow(0 3px 1px rgba(90, 55, 80, 0.42));
 }
 

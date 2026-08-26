@@ -130,6 +130,8 @@ export const FEEL = {
   synth: {
     stagger: 0.026,
     flySec: 0.17,
+    /** 飞入结束时的透明度（与缩小同一条 t²）。 */
+    flyOpacityEnd: 0,
     /** 整段飞入对齐这个格数的时长（5 格：0.274s）。 */
     refCount: 5,
     staggerMin: 0.014,
@@ -201,7 +203,7 @@ export function synthPopAmp(pathLen: number): number {
   return Math.min(s.popAmpMax, 1 + extra * s.popAmpPer);
 }
 
-/** 飞向队尾：加速吸入，缩小。u 0→1。 */
+/** 飞向队尾：加速吸入，缩小并淡出。u 0→1。 */
 export function gatherMotion(u: number): {
   k: number;
   scale: number;
@@ -211,10 +213,11 @@ export function gatherMotion(u: number): {
   if (u <= 0) return { k: 0, scale: 1, opacity: 1, glow: 1 };
   const t = Math.min(1, u);
   const k = t * t;
+  const fade = 1 - k * (1 - FEEL.synth.flyOpacityEnd);
   return {
     k,
-    scale: 1 - t * t,
-    opacity: 1,
+    scale: 1 - k,
+    opacity: fade,
     glow: 1.8 * (1 - t),
   };
 }
@@ -275,7 +278,11 @@ export function itemPopMotion(u: number, amp = 1): { scale: number; lift: number
 export const RULES = {
   /** 抬手有效路径最短长度。 */
   pathMin: 2,
+  /** 开局色数；顶补随分数解锁到 max。 */
   colorCount: 3,
+  colorCountMax: 5,
+  /** 第 4、第 5 色解锁累计分（心 / 星）。 */
+  colorUnlockAt: [5000, 15000],
   /** 4 = 只横竖；对角非法。 */
   neighborhood: 4,
   /** 普通划（路径无道具）≥ 此值，队尾出变色子。 */
@@ -300,6 +307,14 @@ export const RULES = {
   /** 每差 1 分额外加的滚动时间（秒）。 */
   scoreRollPerPoint: 0.0012,
 } as const;
+
+/** 累计分对应的普通色种数（3→4→5）。 */
+export function colorCountForScore(score: number): number {
+  let n: number = RULES.colorCount;
+  if (score >= RULES.colorUnlockAt[0]!) n = 4;
+  if (score >= RULES.colorUnlockAt[1]!) n = 5;
+  return Math.min(n, RULES.colorCountMax);
+}
 
 export const HUD = {
   label: 'SCORE',

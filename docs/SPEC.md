@@ -14,7 +14,7 @@
 | 8 | [SWIPE.md](./SWIPE.md) | 路径规则摘要 | 手感实现（让 5） |
 
 运行时数字：`src/game/design.ts`（`LOOK` / `ART` / `GRID` / `RULES` / `PIECE_DRAW` / `FEEL`）。与 2、3、4、6、7 冲突时先改文档再改该文件。  
-备忘、不当局：[SWIPE-RESEARCH.md](./SWIPE-RESEARCH.md)、[PLAN.md](./PLAN.md)、[HANDOFF.md](./HANDOFF.md)、[SOURCES.md](./SOURCES.md)。
+备忘、不当局：[SWIPE-RESEARCH.md](./SWIPE-RESEARCH.md)、[PLAN.md](./PLAN.md)、[HANDOFF.md](./HANDOFF.md)、[SOURCES.md](./SOURCES.md)、[PERF.md](./PERF.md)（卡顿检索，未改实现）。
 
 ## 当前规格（已冻结）
 
@@ -22,6 +22,7 @@
 |----|-----|
 | 舞台 | 390×844 contain letterbox，底 `#fdf1e7` |
 | 网格 | **6×6**，四向可拐（只横竖） |
+| 色数 | 开局 **3**；累计 ≥5000 第 4 色（心），≥15000 第 5 色（星）；只影响顶补 |
 | 最短消除 | **≥2** 同色；**仅抬手**结算；滑动中不消 |
 | 下落中操作 | 只认 `stable`；邻列在掉不锁盘 |
 | 盘面 `LOOK` | 框 380×450，间距 0，格宽 **60**，子宽 **56**，浅格透明度 **15**，Mask 内缩 7 / 圆角 5 |

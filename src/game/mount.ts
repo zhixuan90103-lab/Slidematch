@@ -6,22 +6,29 @@ import {
   FEEL,
   gatherMotion,
   itemPopMotion,
-  convertPopYawSrc,
-  magicPopYawSrc,
+  convertPopYawLook,
+  magicPopYawLook,
   convertRecolorShown,
-  convertRecolorSrc,
+  convertRecolorLook,
+  convertPieceLook,
+  convertBlankLook,
+  convertBlankShown,
+  isMagicRecolor,
+  blankRestLook,
   convertRecolorSec,
-  goldSpinSrc,
-  goldSpinLoopSrc,
-  GOLD_SRC,
+  goldSpinLook,
+  goldSpinLoopLook,
+  pieceLook,
+  type LookFrame,
   convertRecolorScale,
+  colorCountForScore,
   coinAppearMotion,
   CONVERT_RECOLOR_IN,
   CONVERT_RECOLOR_OUT,
   COIN_LOOK,
   FRAME_SLICE,
   PATH_MIN,
-  pieceSrc,
+
   ROWS,
   STAGE,
   clampPieceDpr,
@@ -58,6 +65,8 @@ import {
   recolorWant,
   type RecolorFx,
 } from './convertLook';
+import { magicClearDelay, scoreFlyEase, scoreFlyScale, type ScoreFly } from './scoreFly';
+import { createPerfLog, type PerfScene } from './perfLog';
 import { commitStroke, createScoreRoll, linkPreview, setScoreTarget, strokeScore, tickScoreRoll } from './score';
 import {
   beginPath,
@@ -85,6 +94,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   let layout = computeLayout(tune);
 
   const hud = uiRoot.querySelector('#hud-score')!;
+  const perf = createPerfLog(uiRoot);
   const scoreRoll = createScoreRoll();
   const paintHud = () => {
     hud.textContent = String(scoreRoll.displayed);
@@ -182,27 +192,28 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     for (const img of glowEls.values()) setPieceBitmapSize(img);
     for (const img of coinEls.values()) setPieceBitmapSize(img);
     for (const img of imgPool) setPieceBitmapSize(img);
+    for (const img of coinPool) setPieceBitmapSize(img);
+    for (const img of blankPool) setPieceBitmapSize(img);
+    for (const img of blankEls.values()) setPieceBitmapSize(img);
+    for (const img of glowPool) setPieceBitmapSize(img);
+    const flyW = layout.pieceW * FEEL.convert.coinScale;
+    const flyH = layout.pieceH * FEEL.convert.coinScale;
+    for (const img of flyPool) {
+      applyLook(img, goldSpinLook(1, false), { w: flyW, h: flyH, filter: false });
+    }
     paintPieces();
   };
 
-  const pieceEls = new Map<number, HTMLImageElement>();
-  const glowEls = new Map<number, HTMLImageElement>();
-  const coinEls = new Map<number, HTMLImageElement>();
-  type ScoreFly = {
-    el: HTMLImageElement;
-    pieceId: number;
-    x0: number;
-    y0: number;
-    x1: number;
-    y1: number;
-    t: number;
-    sec: number;
-    delay: number;
-    w: number;
-    h: number;
-  };
+  const pieceEls = new Map<number, HTMLElement>();
+  const glowEls = new Map<number, HTMLElement>();
+  const coinEls = new Map<number, HTMLElement>();
+  const blankEls = new Map<number, HTMLElement>();
   const scoreFlies: ScoreFly[] = [];
-  const imgPool: HTMLImageElement[] = [];
+  const imgPool: HTMLElement[] = [];
+  const coinPool: HTMLElement[] = [];
+  const blankPool: HTMLElement[] = [];
+  const glowPool: HTMLElement[] = [];
+  const flyPool: HTMLElement[] = [];
   const cellEls: HTMLDivElement[][] = [];
   const lastPath: HTMLDivElement[] = [];
   const pathKeys = new Set<string>();
@@ -244,54 +255,118 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     cellEls.push(line);
   }
 
-  const acquireImg = (): HTMLImageElement => {
-    const pooled = imgPool.pop();
-    if (pooled) {
-      pooled.hidden = false;
-      return pooled;
-    }
-    const el = document.createElement('img');
-    el.className = 'board-piece';
-    el.alt = '';
-    el.draggable = false;
-    el.decoding = 'async';
-    movers.append(el);
+  const parkEl = (el: HTMLElement) => {
+    el.style.opacity = '0';
+    el.style.zIndex = '';
+    el.style.transform = 'translate3d(-9999px,0,0)';
+  };
+
+  const makePieceEl = (host: HTMLElement, className: string): HTMLElement => {
+    const el = document.createElement('div');
+    el.className = className;
+    el.setAttribute('role', 'img');
+    host.append(el);
     return el;
   };
 
-  const acquireGlow = (): HTMLImageElement => {
-    const el = acquireImg();
+  const acquireFrom = (pool: HTMLElement[], make: () => HTMLElement): HTMLElement => {
+    const el = pool.pop() ?? make();
+    el.style.opacity = '';
+    return el;
+  };
+
+  const acquireImg = (): HTMLElement =>
+    acquireFrom(imgPool, () => makePieceEl(movers, 'board-piece'));
+
+  const acquireGlow = (): HTMLElement => {
+    const el = acquireFrom(glowPool, () => makePieceEl(lifts, 'board-piece is-additive-glow'));
     el.classList.add('is-additive-glow');
     return el;
   };
 
-  const releaseImg = (el: HTMLImageElement) => {
-    el.classList.remove(
-      'is-additive-glow',
-      'is-coin-overlay',
-      'is-dim',
-      'is-clearing',
-      'is-convert',
-      'is-magic',
-      'is-lifted',
-    );
-    el.hidden = true;
-    el.style.opacity = '';
-    el.style.filter = '';
-    el.style.zIndex = '';
-    el.style.transform = 'translate3d(-9999px,0,0)';
-    el.dataset.color = '';
-    el.dataset.src = '';
+  const acquireCoin = (): HTMLElement => {
+    const el = acquireFrom(coinPool, () => makePieceEl(lifts, 'board-piece is-coin-overlay'));
+    el.classList.add('is-coin-overlay');
+    return el;
+  };
+
+  const acquireBlank = (): HTMLElement => {
+    const el = acquireFrom(blankPool, () => makePieceEl(lifts, 'board-piece is-blank-overlay'));
+    el.classList.add('is-blank-overlay');
+    return el;
+  };
+
+  const acquireFly = (): HTMLElement =>
+    acquireFrom(flyPool, () => {
+      const el = document.createElement('div');
+      el.className = 'score-fly-coin';
+      uiRoot.append(el);
+      return el;
+    });
+
+  const releaseImg = (el: HTMLElement) => {
+    el.classList.remove('is-dim', 'is-clearing', 'is-convert', 'is-magic', 'is-lifted');
+    parkEl(el);
     imgPool.push(el);
+  };
+
+  const releaseGlow = (el: HTMLElement) => {
+    parkEl(el);
+    glowPool.push(el);
+  };
+
+  const releaseCoin = (el: HTMLElement) => {
+    el.style.filter = 'none';
+    el.style.opacity = '0';
+    el.style.zIndex = '2';
+    coinPool.push(el);
+  };
+
+  const releaseBlank = (el: HTMLElement) => {
+    el.style.filter = 'none';
+    el.style.opacity = '0';
+    el.style.zIndex = '2';
+    blankPool.push(el);
+  };
+
+  const releaseFly = (el: HTMLElement) => {
+    parkEl(el);
+    flyPool.push(el);
   };
 
   const pieceDpr = () => clampPieceDpr(window.devicePixelRatio || 1);
 
-  const setPieceBitmapSize = (el: HTMLImageElement) => {
+  const applyLook = (
+    el: HTMLElement,
+    look: LookFrame,
+    box?: { w: number; h: number; filter?: boolean },
+  ) => {
     const dpr = pieceDpr();
-    el.style.width = `${layout.pieceW * dpr}px`;
-    el.style.height = `${layout.pieceH * dpr}px`;
-    el.style.filter = pieceDropShadowFilter(dpr);
+    const w = box?.w ?? layout.pieceW * dpr;
+    const h = box?.h ?? layout.pieceH * dpr;
+    el.dataset.n = String(look.n);
+    el.dataset.i = String(look.i);
+    el.style.width = `${w}px`;
+    el.style.height = `${h}px`;
+    if (box?.filter === false) {
+      /* caller CSS */
+    } else {
+      el.style.filter = pieceDropShadowFilter(dpr);
+    }
+    if (el.dataset.sheet !== look.src) {
+      el.dataset.sheet = look.src;
+      el.style.backgroundImage = look.src ? `url("${look.src}")` : '';
+    }
+    el.dataset.frame = `${look.i}:${look.n}`;
+    el.style.backgroundSize = `${look.n * w}px ${h}px`;
+    el.style.backgroundPosition = `${-look.i * w}px 0`;
+  };
+
+  const setPieceBitmapSize = (el: HTMLElement) => {
+    const src = el.dataset.sheet || '';
+    const n = Number(el.dataset.n || 1);
+    const i = Number(el.dataset.i || 0);
+    applyLook(el, { src, i, n });
   };
 
   const pieceLeft = (col: number) =>
@@ -299,7 +374,61 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   const pieceTop = (y: number) =>
     y * (layout.cellH + layout.spacing) + (layout.cellH - layout.pieceH) / 2;
 
-  const syncPieceEl = (piece: Piece): HTMLImageElement => {
+  const warmCount = ROWS * COLS;
+  const placeIdle = (el: HTMLElement, row: number, col: number) => {
+    const x = pieceLeft(col);
+    const y = pieceTop(row);
+    el.style.opacity = '0';
+    el.style.filter = 'none';
+    el.style.zIndex = '2';
+    el.style.transform = pieceLayerTransform(
+      x,
+      y,
+      1,
+      1,
+      layout.pieceW,
+      layout.pieceH,
+      pieceDpr(),
+    );
+  };
+  for (let i = 0; i < warmCount; i++) {
+    const el = makePieceEl(lifts, 'board-piece is-coin-overlay');
+    applyLook(el, goldSpinLook(1, false));
+    placeIdle(el, Math.floor(i / COLS), i % COLS);
+    coinPool.push(el);
+  }
+  for (let i = 0; i < warmCount; i++) {
+    const el = makePieceEl(lifts, 'board-piece is-blank-overlay');
+    applyLook(el, blankRestLook());
+    placeIdle(el, Math.floor(i / COLS), i % COLS);
+    blankPool.push(el);
+  }
+  for (let i = 0; i < warmCount; i++) {
+    const el = makePieceEl(lifts, 'board-piece is-additive-glow');
+    applyLook(el, pieceLook(0));
+    parkEl(el);
+    glowPool.push(el);
+  }
+  for (let i = 0; i < warmCount; i++) {
+    const el = document.createElement('div');
+    el.className = 'score-fly-coin';
+    applyLook(el, goldSpinLook(1, false), {
+      w: layout.pieceW * FEEL.convert.coinScale,
+      h: layout.pieceH * FEEL.convert.coinScale,
+      filter: false,
+    });
+    uiRoot.append(el);
+    parkEl(el);
+    flyPool.push(el);
+  }
+  for (let i = 0; i < 12; i++) {
+    const el = makePieceEl(movers, 'board-piece');
+    applyLook(el, pieceLook(0));
+    parkEl(el);
+    imgPool.push(el);
+  }
+
+  const syncPieceEl = (piece: Piece): HTMLElement => {
     let el = pieceEls.get(piece.id);
     if (!el) {
       el = acquireImg();
@@ -317,22 +446,23 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const popU = piece.itemPopSec > 0 ? piece.itemPopT / piece.itemPopSec : 1;
     const popIn =
       piece.itemPopSec > 0 ? itemPopMotion(popU, piece.itemPopAmp) : null;
-    const recSrc = rec && recU < 1 ? convertRecolorSrc(rec.from, rec.to, recU) : null;
-    const recStill = rec && recU >= 1 ? pieceSrc(rec.to) : null;
-    const yawSrc = poppingIn
+    const magicRec = rec && isMagicRecolor(rec.from, rec.to);
+    const recLook = rec
+      ? magicRec
+        ? convertPieceLook(rec.from, rec.to, recU)
+        : convertRecolorLook(rec.from, rec.to, recU)
+      : null;
+    const yawLook = poppingIn
       ? isMagicColor(piece.color)
-        ? magicPopYawSrc(popU, piece.itemPopAmp)
+        ? magicPopYawLook(popU, piece.itemPopAmp)
         : isConvertColor(piece.color)
-          ? convertPopYawSrc(popU, piece.itemPopAmp)
+          ? convertPopYawLook(popU, piece.itemPopAmp)
           : null
       : null;
-    const src = yawSrc ?? recSrc ?? recStill ?? pieceSrc(shown);
-    if (el.dataset.src !== src) {
-      el.dataset.src = src;
-      el.src = src;
-    }
+    const look =
+      yawLook ?? recLook ?? pieceLook(shown === COIN_LOOK ? piece.color : shown);
+    applyLook(el, look);
     el.dataset.color = String(shown);
-    setPieceBitmapSize(el);
     const gather = piece.state === 'clearing' && piece.flySec > 0;
     const clearDur = gather ? piece.flySec : CLEAR_SEC;
     const clearU = piece.state === 'clearing' ? piece.clearT / clearDur : -1;
@@ -348,7 +478,9 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const y = fromY + (toY - fromY) * k;
     const dimAmt = dimK.get(piece.id) ?? 0;
     const opacity = fade * (1 - dimAmt * (1 - FEEL.select.otherOpacity));
-    el.style.opacity = opacity === 1 ? '' : String(opacity);
+    const magicFace =
+      shown === COIN_LOOK || (piece.state === 'clearing' && piece.clearLook === COIN_LOOK);
+    el.style.opacity = magicFace ? '0' : opacity === 1 ? '' : String(opacity);
     const popK = popT.get(piece.id) ?? 0;
     const pieceRowEarly = piece.destRow ?? piece.sourceRow;
     const convertSel =
@@ -411,12 +543,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         glow = acquireGlow();
         glowEls.set(piece.id, glow);
       }
-      if (glow.dataset.src !== src) {
-        glow.dataset.src = src;
-        glow.src = src;
-      }
+      applyLook(glow, look);
       glow.dataset.color = String(shown);
-      setPieceBitmapSize(glow);
       glow.style.filter = 'none';
       const glowOp = onPath ? FEEL.select.glowOpacity : FEEL.convert.markGlow;
       glow.style.opacity = String(glowOp * fade * glowAmt);
@@ -424,8 +552,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       glow.style.zIndex = String(11 + z);
       if (glow.parentElement !== host) host.append(glow);
     } else if (glow) {
-      glow.classList.remove('is-additive-glow');
-      releaseImg(glow);
+      releaseGlow(glow);
       glowEls.delete(piece.id);
     }
 
@@ -445,50 +572,67 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const coinFade =
       leavingBlank ? 1 - Math.min(1, Math.max(0, goldU) / flipOutU) : 1;
     const waitingFly = scoreFlies.some((f) => f.pieceId === piece.id && f.t < f.delay);
+    const wantBlank =
+      fade > 0.08 &&
+      ((magicRec && rec && convertBlankShown(rec.from, rec.to, recU)) ||
+        magicFace);
+    let blank = blankEls.get(piece.id);
+    if (!blank) {
+      blank = acquireBlank();
+      blankEls.set(piece.id, blank);
+    }
+    applyLook(blank, rec && magicRec ? convertBlankLook(rec.from, rec.to, recU) : blankRestLook());
+    blank.style.transform = el.style.transform;
+    if (wantBlank) {
+      blank.style.opacity = opacity === 1 ? '1' : String(opacity);
+      blank.style.zIndex = String(12 + z);
+    } else {
+      blank.style.filter = 'none';
+      blank.style.opacity = '0';
+      blank.style.zIndex = '2';
+    }
+    if (blank.parentElement !== host) host.append(blank);
     const wantCoin =
       (piece.state !== 'clearing' || waitingFly) &&
       ((leavingBlank && coinFade > 0.02) ||
         ((goingBlank || shown === COIN_LOOK) && coinDue) ||
         waitingFly);
     let coin = coinEls.get(piece.id);
-    if (wantCoin && fade > 0.08) {
-      if (!coin) {
-        coin = acquireImg();
-        coin.classList.add('is-coin-overlay');
-        coinEls.set(piece.id, coin);
-      }
-      const goldSrc =
-        rec && goldU < 1 && goldU >= 0 ? goldSpinSrc(goldU, leavingBlank) : GOLD_SRC;
-      if (coin.dataset.src !== goldSrc) {
-        coin.dataset.src = goldSrc;
-        coin.src = goldSrc;
-      }
-      const appearU = Math.min(1, Math.max(0, goldU));
-      const appear = leavingBlank
-        ? { opacity: coinFade, scale: 1, lift: 0 }
-        : coinAppearMotion(appearU);
-      setPieceBitmapSize(coin);
-      const coinOp = opacity * appear.opacity;
-      coin.style.opacity = coinOp === 1 ? '' : String(coinOp);
-      const coinS = recPulse * appear.scale;
-      coin.style.transform = pieceLayerTransform(
-        x,
-        y - liftY - appear.lift,
-        piece.scaleX * popS * clearS * popScale,
-        piece.scaleY * popS * clearS * popScale,
-        layout.pieceW,
-        layout.pieceH,
-        pieceDpr(),
-        wobble + popRot,
-        coinS,
-      );
-      coin.style.zIndex = String(12 + z);
-      if (coin.parentElement !== host) host.append(coin);
-    } else if (coin) {
-      coin.classList.remove('is-coin-overlay');
-      releaseImg(coin);
-      coinEls.delete(piece.id);
+    if (!coin) {
+      coin = acquireCoin();
+      coinEls.set(piece.id, coin);
     }
+    applyLook(
+      coin,
+      rec && goldU < 1 && goldU >= 0 ? goldSpinLook(goldU, leavingBlank) : goldSpinLook(1, false),
+    );
+    const appearU = Math.min(1, Math.max(0, goldU));
+    const appear = leavingBlank
+      ? { opacity: coinFade, scale: 1, lift: 0 }
+      : coinAppearMotion(appearU);
+    const coinS = wantCoin && fade > 0.08 ? recPulse * appear.scale : 1;
+    const coinLift = wantCoin && fade > 0.08 ? appear.lift : 0;
+    coin.style.transform = pieceLayerTransform(
+      x,
+      y - liftY - coinLift,
+      piece.scaleX * popS * clearS * popScale,
+      piece.scaleY * popS * clearS * popScale,
+      layout.pieceW,
+      layout.pieceH,
+      pieceDpr(),
+      wobble + popRot,
+      coinS,
+    );
+    if (wantCoin && fade > 0.08) {
+      const coinOp = opacity * appear.opacity;
+      coin.style.opacity = coinOp === 1 ? '1' : String(coinOp);
+      coin.style.zIndex = String(13 + z);
+    } else {
+      coin.style.filter = 'none';
+      coin.style.opacity = '0';
+      coin.style.zIndex = '2';
+    }
+    if (coin.parentElement !== host) host.append(coin);
     return el;
   };
 
@@ -601,15 +745,18 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     }
     for (const [id, el] of glowEls) {
       if (sim.pieces.has(id) && pathKeys.size) continue;
-      el.classList.remove('is-additive-glow');
-      releaseImg(el);
+      releaseGlow(el);
       glowEls.delete(id);
     }
     for (const [id, el] of coinEls) {
       if (sim.pieces.has(id)) continue;
-      el.classList.remove('is-coin-overlay');
-      releaseImg(el);
+      releaseCoin(el);
       coinEls.delete(id);
+    }
+    for (const [id, el] of blankEls) {
+      if (sim.pieces.has(id)) continue;
+      releaseBlank(el);
+      blankEls.delete(id);
     }
   };
 
@@ -739,17 +886,6 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     };
   };
 
-  const magicClearDelay = (cells: Cell[]): ((cell: Cell) => number) => {
-    const ordered = cells.slice().sort((a, b) => a.row - b.row || a.col - b.col);
-    const rowRank = new Map<number, number>();
-    for (const cell of ordered) {
-      if (!rowRank.has(cell.row)) rowRank.set(cell.row, rowRank.size);
-    }
-    return (cell: Cell) =>
-      (rowRank.get(cell.row) ?? 0) * FEEL.convert.scoreFlyRowStagger +
-      cell.col * FEEL.convert.scoreFlyColStagger;
-  };
-
   const spawnScoreFlies = (cells: Cell[]) => {
     const dest = scoreTargetInUi();
     const boardLeft = Number.parseFloat(board.style.left || '0') || 0;
@@ -761,14 +897,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     ordered.forEach((cell) => {
       const p = sim.slots[cell.row]![cell.col]!.current;
       if (!p || p.state !== 'stable') return;
-      const el = document.createElement('img');
-      el.className = 'score-fly-coin';
-      el.alt = '';
-      el.draggable = false;
-      el.src = GOLD_SRC;
-      el.style.width = `${w}px`;
-      el.style.height = `${h}px`;
-      uiRoot.append(el);
+      const el = acquireFly();
+      applyLook(el, goldSpinLook(1, false), { w, h, filter: false });
       scoreFlies.push({
         el,
         pieceId: p.id,
@@ -798,30 +928,20 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         continue;
       }
       const u = Math.min(1, local / fly.sec);
-      const src = goldSpinLoopSrc(local / spin);
-      if (fly.el.dataset.src !== src) {
-        fly.el.dataset.src = src;
-        fly.el.src = src;
-      }
-      const k = 1 - (1 - u) * (1 - u);
+      applyLook(fly.el, goldSpinLoopLook(local / spin), {
+        w: fly.w,
+        h: fly.h,
+        filter: false,
+      });
+      const k = scoreFlyEase(u);
       const x = fly.x0 + (fly.x1 - fly.x0) * k;
       const y = fly.y0 + (fly.y1 - fly.y0) * k - Math.sin(Math.PI * u) * arc;
-      const s0 = FEEL.convert.scoreFlyStartScale;
-      const sPeak = FEEL.convert.scoreFlyPeakScale;
-      const s1 = FEEL.convert.scoreFlyEndScale;
-      let s: number;
-      if (u < 1 / 3) {
-        const k = u / (1 / 3);
-        s = s0 + (sPeak - s0) * (1 - (1 - k) * (1 - k));
-      } else {
-        const k = (u - 1 / 3) / (2 / 3);
-        s = sPeak + (s1 - sPeak) * (k * k);
-      }
+      const s = scoreFlyScale(u);
       fly.el.style.opacity = '1';
       fly.el.style.transform = `translate3d(${x - fly.w / 2}px,${y - fly.h / 2}px,0) scale(${s})`;
       fly.el.style.transformOrigin = 'center center';
       if (u >= 1) {
-        fly.el.remove();
+        releaseFly(fly.el);
         scoreFlies.splice(i, 1);
       }
     }
@@ -855,6 +975,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     if (path && canCommit(path) && stablePathCount(sim, path.cells) >= PATH_MIN) {
       const settle = resolveStroke(path, colors, convertPreview);
       commitStroke(scoreRoll, strokeScore(path, colors, settle));
+      sim.colorCount = colorCountForScore(scoreRoll.committed);
       if (settle.extraCells.length && lastLocal) {
         pendingConvert = {
           cells: path.cells.map((c) => ({ row: c.row, col: c.col })),
@@ -1182,6 +1303,27 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const recoloring = tickRecolor(dt);
     if (tickScoreFlies(dt)) keep = true;
     const dropping = needsTick(sim);
+    const perfScene = ((): PerfScene => {
+      if (scoreFlies.length) return 'score_fly';
+      let magicFlip = false;
+      let magicCoin = false;
+      let magicBack = false;
+      let convert = false;
+      for (const rec of recolorFx.values()) {
+        if (rec.to === COIN_LOOK) {
+          if (!rec.done) magicFlip = true;
+          else magicCoin = true;
+        } else if (rec.from === COIN_LOOK) magicBack = true;
+        else if (!rec.done) convert = true;
+      }
+      if (magicBack) return 'magic_back';
+      if (magicFlip) return 'magic_flip';
+      if (magicCoin) return 'magic_coin';
+      if (convert) return 'convert';
+      if (dropping) return 'drop';
+      return 'idle';
+    })();
+    const js0 = performance.now();
     if (dropping) {
       tickDrop(sim, dt, {
         stride: layout.cellH + layout.spacing,
@@ -1214,6 +1356,16 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       keep = true;
     }
     if (tickClearFx(dt)) keep = true;
+    const jsMs = performance.now() - js0;
+    if (lastTs && dt > 0) {
+      perf.sample(perfScene, {
+        frameMs: dt * 1000,
+        jsMs,
+        imgs: pieceEls.size + coinEls.size + glowEls.size + scoreFlies.length,
+        coins: coinEls.size,
+        recs: recolorFx.size,
+      });
+    }
     if (keep) {
       raf = requestAnimationFrame(loop);
       return;
@@ -1229,6 +1381,32 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   }
   ensureLoop();
 
+  let idleRaf = 0;
+  let idleN = 0;
+  let idleTs = 0;
+  const idleProbe = (ts: number) => {
+    if (idleN >= 180) {
+      idleRaf = 0;
+      return;
+    }
+    if (!raf && idleTs) {
+      const frameMs = ts - idleTs;
+      if (frameMs < 200) {
+        perf.sample('idle', {
+          frameMs,
+          jsMs: 0,
+          imgs: pieceEls.size + coinEls.size + glowEls.size,
+          coins: coinEls.size,
+          recs: recolorFx.size,
+        });
+      }
+    }
+    idleTs = ts;
+    idleN += 1;
+    idleRaf = requestAnimationFrame(idleProbe);
+  };
+  idleRaf = requestAnimationFrame(idleProbe);
+
   const settings = mountSettings(uiRoot, tune, (next) => {
     tune = next;
     saveTune(tune);
@@ -1238,6 +1416,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   return {
     dispose: () => {
       cancelAnimationFrame(raf);
+      cancelAnimationFrame(idleRaf);
+      perf.dispose();
       disposeClearFx();
       unbind();
       board.remove();
