@@ -364,14 +364,8 @@ export const RULES = {
   convertColor: 5,
   /** colors[] 哨兵：魔法子。 */
   magicColor: 6,
-  /** 抬手结算：unit × 消除格数² × 倍率。 */
-  scoreUnit: 1,
-  /** 滑动中每连一格加这么多（预览，未进累计）。1–9 格即个位 1–9。 */
-  scoreLinkUnit: 1,
-  /** 路径含变色且无魔法。 */
-  scoreConvertMul: 2,
-  /** 路径含魔法（优先于变色，不叠乘）。 */
-  scoreMagicMul: 3,
+  /** 分数：当次 = max(1, 抬手前金币) × 消除颗数。变色 / 魔法不另乘。 */
+  scoreCoinMin: 1,
   /** 魔法有效抬手：路径每格 +1 金币（本局累计，飞向金币栏）。 */
   coinPerMagicCell: 1,
   /** HUD 数字滚动最短/最长（秒）。 */

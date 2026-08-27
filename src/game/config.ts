@@ -112,9 +112,6 @@ export const CONVERT_COLOR = RULES.convertColor;
 export const MAGIC_COLOR = RULES.magicColor;
 /** 魔法滑动中全盘白板显示（不是盘面色号）。 */
 export const COIN_LOOK = 7;
-export const SCORE_UNIT = RULES.scoreUnit;
-export const SCORE_CONVERT_MUL = RULES.scoreConvertMul;
-export const SCORE_MAGIC_MUL = RULES.scoreMagicMul;
 export const COIN_PER_MAGIC_CELL = RULES.coinPerMagicCell;
 
 export function isConvertColor(color: number): boolean {

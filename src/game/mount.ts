@@ -91,7 +91,6 @@ import { createPerfLog, type PerfScene } from './perfLog';
 import {
   commitStroke,
   createScoreRoll,
-  linkPreview,
   setScoreTarget,
   strokeCoins,
   strokeScore,
@@ -1080,6 +1079,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     holdAcc: number;
     holdAfter: boolean;
     lockColor: number;
+    payout: number;
   } | null = null;
   applyLayout();
   for (const piece of sim.pieces.values()) {
@@ -1333,7 +1333,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     return scoreFlies.length > 0 || punching;
   };
 
-  const commitClear = (cells: Cell[], settle: StrokeResolve, lockColor = -1) => {
+  const commitClear = (cells: Cell[], settle: StrokeResolve, lockColor = -1, payout = 0) => {
+    if (payout > 0) commitStroke(scoreRoll, payout);
     const magicClear = board.classList.contains('is-magic-look');
     stampClearLook(cells.concat(settle.extraCells));
     if (magicClear) spawnScoreFlies(cells);
@@ -1422,7 +1423,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     if (path && canCommit(path) && stablePathCount(sim, path.cells) >= PATH_MIN) {
       fireHaptic('find');
       const settle = resolveStroke(path, colors, convertPreview);
-      commitStroke(scoreRoll, strokeScore(path, colors, settle));
+      const payout = strokeScore(path, settle, coins);
       const gained = strokeCoins(path, colors);
       coins += gained;
       if (!path.magic || gained < 1) setScoreTarget(coinRoll, coins);
@@ -1440,6 +1441,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
           holdAcc: 0,
           holdAfter: true,
           lockColor: path.color,
+          payout,
         };
         pinCells(sim, clearCells);
         extraKeys.clear();
@@ -1448,7 +1450,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         paintHud();
         ensureLoop();
       } else {
-        commitClear(path.cells, settle, path.color);
+        commitClear(path.cells, settle, path.color, payout);
       }
     } else {
       path = null;
@@ -1486,7 +1488,6 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       if (path) fireHaptic('press');
       paintPath(path, false);
       lastDipHover = hit ? cellKey(hit) : null;
-      aimHud(scoreRoll.committed + (path ? linkPreview(path.cells.length) : 0));
       return;
     }
 
@@ -1536,7 +1537,6 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     } else {
       lastDipHover = null;
     }
-    aimHud(scoreRoll.committed + (path ? linkPreview(path.cells.length) : 0));
   };
 
   const unbind = bindSwipeInput(board, {
@@ -1774,7 +1774,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         pendingConvert.queue.length = 0;
         if (!pendingConvert.holdAfter) {
           const job = pendingConvert;
-          commitClear(job.countdown.cells, job.settle, job.lockColor);
+          commitClear(job.countdown.cells, job.settle, job.lockColor, job.payout);
         } else {
           pendingConvert.holding = true;
           pendingConvert.holdAcc = 0;
@@ -1782,7 +1782,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       }
       if (pendingConvert?.holding && pendingConvert.holdAcc >= FEEL.convert.holdSec) {
         const job = pendingConvert;
-        commitClear(job.countdown.cells, job.settle);
+        commitClear(job.countdown.cells, job.settle, job.lockColor, job.payout);
       } else if (pendingConvert) {
         keep = true;
       }

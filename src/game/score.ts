@@ -1,52 +1,35 @@
 /**
  * 分数与本局金币。规则真源：docs/DESIGN.md「分数」；数字：design.ts RULES。
  *
- * 滑动：每格 +1 预览（个位 1–9），未进累计。
- * 抬手：一次滚动到「累计 + 当次」再个位四舍五入后的值。禁止先滚到未取整再跳。
- * 金币：仅魔法有效抬手，路径每格 +coinPerMagicCell；本局从 0 起，无预览。
+ * 当次 = max(1, 抬手前金币) × 消除颗数。变色/魔法不另乘。
+ * 滑动不加分。开始消除时 Rolling 加上当次（路径 + 散子）。
+ * 金币：仅魔法有效抬手，路径每格 +coinPerMagicCell；本局从 0 起。
  */
 
 import { RULES } from './config';
-import { pathUsesConvert, pathUsesMagic, type StrokePath, type StrokeResolve } from './items';
+import { pathUsesMagic, type StrokePath, type StrokeResolve } from './items';
 
-export function strokeMultiplier(usedMagic: boolean, usedConvert: boolean): number {
-  if (usedMagic) return RULES.scoreMagicMul;
-  if (usedConvert) return RULES.scoreConvertMul;
-  return 1;
+export function coinUnit(coins: number): number {
+  return Math.max(RULES.scoreCoinMin, Math.max(0, coins));
 }
 
-export function scoreForCleared(cleared: number, mul: number): number {
+export function scoreForCleared(cleared: number, coins: number): number {
   if (cleared < 1) return 0;
-  return RULES.scoreUnit * cleared * cleared * mul;
+  return coinUnit(coins) * cleared;
 }
 
 export function clearedCount(path: StrokePath, settle: StrokeResolve): number {
   return path.cells.length + settle.extraCells.length;
 }
 
-export function strokeScore(path: StrokePath, colors: number[][], settle: StrokeResolve): number {
-  const magic = pathUsesMagic(path, colors);
-  const convert = pathUsesConvert(path, colors);
-  return scoreForCleared(clearedCount(path, settle), strokeMultiplier(magic, convert));
+export function strokeScore(path: StrokePath, settle: StrokeResolve, coins: number): number {
+  return scoreForCleared(clearedCount(path, settle), coins);
 }
 
 /** 魔法路径格进本局金币；变色散消、普通划不加。 */
 export function strokeCoins(path: StrokePath, colors: number[][]): number {
   if (!pathUsesMagic(path, colors)) return 0;
   return path.cells.length * RULES.coinPerMagicCell;
-}
-
-/** 滑动中预览：线性、小额，抬手不算进累计。 */
-export function linkPreview(pathLen: number): number {
-  if (pathLen < 1) return 0;
-  return pathLen * RULES.scoreLinkUnit;
-}
-
-/** 个位四舍五入到十；不足 10 的正分保留，避免首消变 0。 */
-export function roundScoreOnes(n: number): number {
-  if (n <= 0) return 0;
-  if (n < 10) return n;
-  return Math.round(n / 10) * 10;
 }
 
 function easeOutCubic(t: number): number {
@@ -78,9 +61,9 @@ export function setScoreTarget(roll: ScoreRoll, target: number): void {
   roll.dur = Math.min(RULES.scoreRollMaxSec, Math.max(RULES.scoreRollMinSec, dur));
 }
 
-/** 抬手：累计先取整，滚动目标就是取整后的值。 */
+/** 抬手：累计加上当次，HUD 滚到新累计。 */
 export function commitStroke(roll: ScoreRoll, payout: number): void {
-  roll.committed = roundScoreOnes(roll.committed + Math.max(0, payout));
+  roll.committed = Math.max(0, roll.committed + Math.max(0, payout));
   setScoreTarget(roll, roll.committed);
 }
 

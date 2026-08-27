@@ -35,7 +35,7 @@
 | C 消除 + 下落 | **已做**（占坑 0.22、初速/加速度/上限、静止子可划） |
 | D 6/8/10 档视+震 | **下一刀** |
 | E 道具 | 变色子 + 魔法子已做；按钮式全盘清不做 |
-| F 分数 | 已做（累计 + n² + 道具倍率） |
+| F 分数 | 已做（当次 = 金币 × 颗数，累加） |
 
 ## 打开
 
@@ -72,7 +72,7 @@ src/game/design.ts  LOOK / ART / GRID / RULES / FEEL / HUD / PIECE_DRAW（`stepC
 src/game/config.ts  资源、yaw 横条、warmup
 src/game/perfLog.ts 真机 [perf] 帧时（默认关；`?debugPerf=1` 才 console / sessionStorage）
 src/game/items.ts   生成、散消、resolveStroke
-src/game/score.ts   n² × 倍率，SCORE/COINS 累计滚动
+src/game/score.ts   当次=金币×颗数，SCORE/COINS 累计滚动
 src/game/clearFx.ts 消除碎屑
 src/game/settings.ts 调参覆盖 LOOK + HUD（存档 v26；金币条高低/数字宽/图标 XY）
 src/game/path.ts    四邻过边/进格、加/减、插值
