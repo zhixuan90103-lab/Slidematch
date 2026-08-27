@@ -31,6 +31,10 @@
 *::before,
 *::after {
   box-sizing: border-box;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 html,
@@ -45,6 +49,8 @@ body {
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -160,57 +166,136 @@ body.native-app #shell {
   z-index: 3;
   pointer-events: none;
   display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--hud-gutter, 14px);
   padding-top: calc(var(--safe-top) + var(--ui-pad-top));
-  padding-left: calc(var(--safe-left) + var(--ui-pad-x));
-  padding-right: calc(var(--safe-right) + var(--ui-pad-x));
+  padding-left: calc(var(--safe-left) + var(--hud-gutter, 14px));
+  padding-right: calc(var(--safe-right) + var(--hud-gutter, 14px));
+}
+
+.hud-panel {
+  position: relative;
+  box-sizing: border-box;
+  height: var(--hud-panel-height, 120px);
+  padding: var(--hud-panel-width, 12px);
+  border: none;
+  background: none;
+}
+
+.hud-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  box-sizing: border-box;
+  pointer-events: none;
+  border: var(--hud-panel-width, 12px) solid transparent;
+  border-image-source: url('./assets/hud-panel.png');
+  border-image-slice: var(--hud-panel-slice, 52) fill;
+  border-image-width: var(--hud-panel-width, 12px);
+  border-image-repeat: stretch;
+  filter: drop-shadow(0 2px 2px rgba(140, 100, 80, 0.32));
+}
+
+.hud-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.hud-coins,
+.hud-score-wrap {
+  display: grid;
+  grid-template-rows: var(--hud-label-line, 18px) 1fr;
+  align-items: center;
+  justify-items: center;
+  padding-top: 2px;
+}
+
+.hud-coins {
+  position: relative;
+  z-index: 4;
+  pointer-events: none;
+  flex: 0 0 var(--hud-panel-height, 120px);
+  width: var(--hud-panel-height, 120px);
+  min-width: var(--hud-panel-height, 120px);
+}
+
+.hud-coins-row {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--hud-coin-icon-h, 45px);
+}
+
+.hud-coins-icon {
+  position: absolute;
+  left: var(--hud-coin-anchor, 12px);
+  top: 50%;
+  width: var(--hud-coin-icon-w, 38px);
+  height: var(--hud-coin-icon-h, 45px);
+  margin-top: calc(var(--hud-coin-icon-h, 45px) / -2);
+  background: url('./assets/coin.png') center / contain no-repeat;
+  transform-origin: center center;
+  transform: translateY(var(--hud-coin-icon-y, 15px)) scale(var(--hud-coin-icon-punch, 1));
+}
+
+.hud-coins-n {
+  display: block;
+  box-sizing: border-box;
+  margin-left: calc(var(--hud-coin-anchor, 12px) + var(--hud-coin-icon-w, 38px) + var(--hud-coin-gap, 4px));
+  width: calc(100% - var(--hud-coin-anchor, 12px) - var(--hud-coin-icon-w, 38px) - var(--hud-coin-gap, 4px));
+  min-width: 0;
+  font-family: Inter, -apple-system, 'Segoe UI', sans-serif;
+  font-size: var(--hud-coin-size, 36px);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  line-height: var(--hud-coin-icon-h, 45px);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  transform: translateY(var(--hud-coin-num-y, 15px));
 }
 
 .hud-score-wrap {
-  position: absolute;
-  left: 0;
-  right: 0;
+  position: relative;
+  z-index: 3;
   text-align: center;
   pointer-events: none;
-}
-
-#btn-settings {
-  position: relative;
-  z-index: 4;
-  pointer-events: auto;
-  width: 40px;
-  height: 40px;
-  margin-top: 4px;
-  border: none;
-  border-radius: 12px;
-  color: var(--ink);
-  background: rgba(253, 241, 231, 0.92);
-  box-shadow: 0 3px 8px rgba(140, 100, 80, 0.22);
-  display: grid;
-  place-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
 .hud-label {
   margin: 0;
+  align-self: end;
   font-family: Inter, -apple-system, 'Segoe UI', sans-serif;
-  font-size: 15px;
+  font-size: var(--hud-label-size, 15px);
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   color: var(--accent);
   text-transform: uppercase;
   text-shadow: none;
+  line-height: var(--hud-label-line, 18px);
+  height: var(--hud-label-line, 18px);
+  white-space: nowrap;
+  transform: translateY(var(--hud-label-y, 0px));
 }
 
 .hud-score {
-  margin: 2px 0 0;
+  margin: 0;
   font-family: Inter, -apple-system, 'Segoe UI', sans-serif;
-  font-size: 46px;
+  font-size: var(--hud-score-size, 45px);
   font-weight: 800;
   letter-spacing: 0.02em;
   color: var(--ink);
   line-height: 0.95;
   text-shadow: none;
+  transform: translateY(var(--hud-score-y, 0px));
 }
 
 #game-board {
@@ -459,6 +544,24 @@ body.native-app #shell {
   box-shadow: none;
 }
 
+#btn-settings {
+  display: none;
+  position: absolute;
+  left: calc(var(--safe-left) + 14px);
+  bottom: calc(var(--safe-bottom) + 14px);
+  z-index: 7;
+  pointer-events: auto;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  border: none;
+  border-radius: 12px;
+  color: var(--ink);
+  background: rgba(253, 241, 231, 0.92);
+  box-shadow: 0 3px 8px rgba(140, 100, 80, 0.22);
+  place-items: center;
+}
+
 #settings-root {
   display: none;
   position: absolute;
@@ -474,16 +577,17 @@ body.native-app #shell {
 .settings-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(80, 50, 40, 0.28);
+  background: rgba(80, 50, 40, 0.18);
 }
 
 #tune-panel {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -46%);
+  left: calc(var(--safe-left) + 14px);
+  bottom: calc(var(--safe-bottom) + 62px);
+  top: auto;
+  transform: none;
   width: 240px;
-  max-height: 72%;
+  max-height: 58%;
   overflow: auto;
   padding: 14px 14px 12px;
   border-radius: 18px;
@@ -491,6 +595,19 @@ body.native-app #shell {
   color: var(--ink);
   font-size: 12px;
   box-shadow: 0 8px 24px rgba(140, 100, 80, 0.28);
+}
+
+#tune-panel .tune-section {
+  margin: 10px 0 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+#tune-panel .tune-section:first-of-type {
+  margin-top: 0;
 }
 
 #tune-panel .tune-head {

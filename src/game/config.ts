@@ -10,7 +10,7 @@ import pieceMagic from '../assets/piece-magic.png';
 import goldSrc from '../assets/coin.png';
 
 
-import { ART, FEEL, GRID, LOOK, RULES, itemPopPeakU } from './design';
+import { ART, FEEL, GRID, HUD, LOOK, RULES, itemPopPeakU } from './design';
 
 const yawStripMods = import.meta.glob('../assets/fx-preview/yaw-2d/*/yaw_strip.png', {
   eager: true,
@@ -82,7 +82,7 @@ export {
   PIECE_FX_COLOR,
   pieceBadgeStyle,
   RULES,
-  colorCountForScore,
+  stepColorCount,
   STAGE,
   clampPieceDpr,
   pieceDropShadowFilter,
@@ -101,6 +101,8 @@ export const SPACING = LOOK.spacing;
 export const FRAME_SLICE = ART.frameSlice;
 export const FRAME_SCALE = ART.frameScale;
 export const FRAME_WIDTH = Math.round(ART.frameSlice * ART.frameScale);
+export const HUD_PANEL_SLICE = HUD.panelSlice;
+export const HUD_PANEL_WIDTH = Math.round(HUD.panelSlice * HUD.panelScale);
 export const COLOR_COUNT = RULES.colorCount;
 export const COLOR_COUNT_MAX = RULES.colorCountMax;
 export const PATH_MIN = RULES.pathMin;
@@ -113,6 +115,7 @@ export const COIN_LOOK = 7;
 export const SCORE_UNIT = RULES.scoreUnit;
 export const SCORE_CONVERT_MUL = RULES.scoreConvertMul;
 export const SCORE_MAGIC_MUL = RULES.scoreMagicMul;
+export const COIN_PER_MAGIC_CELL = RULES.coinPerMagicCell;
 
 export function isConvertColor(color: number): boolean {
   return color === CONVERT_COLOR;

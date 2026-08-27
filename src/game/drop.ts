@@ -77,7 +77,7 @@ export type DropSim = {
   pendingItem: { cell: Cell; color: number; magic: boolean; pathLen: number } | null;
   /** 路径飞入格一起腾格的时刻。 */
   vacateAt: number | null;
-  /** 顶补普通色种数（随分数 3→5）。 */
+  /** 顶补普通色种数（开局 3；魔法抬手后 ±1，夹在 3–5）。 */
   colorCount: number;
 };
 

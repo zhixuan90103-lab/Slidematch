@@ -1,8 +1,9 @@
 /**
- * 分数。规则真源：docs/DESIGN.md「分数」；数字：design.ts RULES。
+ * 分数与本局金币。规则真源：docs/DESIGN.md「分数」；数字：design.ts RULES。
  *
  * 滑动：每格 +1 预览（个位 1–9），未进累计。
  * 抬手：一次滚动到「累计 + 当次」再个位四舍五入后的值。禁止先滚到未取整再跳。
+ * 金币：仅魔法有效抬手，路径每格 +coinPerMagicCell；本局从 0 起，无预览。
  */
 
 import { RULES } from './config';
@@ -27,6 +28,12 @@ export function strokeScore(path: StrokePath, colors: number[][], settle: Stroke
   const magic = pathUsesMagic(path, colors);
   const convert = pathUsesConvert(path, colors);
   return scoreForCleared(clearedCount(path, settle), strokeMultiplier(magic, convert));
+}
+
+/** 魔法路径格进本局金币；变色散消、普通划不加。 */
+export function strokeCoins(path: StrokePath, colors: number[][]): number {
+  if (!pathUsesMagic(path, colors)) return 0;
+  return path.cells.length * RULES.coinPerMagicCell;
 }
 
 /** 滑动中预览：线性、小额，抬手不算进累计。 */

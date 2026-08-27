@@ -5,6 +5,11 @@
 
 const DOUBLE_TAP_MS = 300;
 
+const allowNative = (target: EventTarget | null): boolean => {
+  if (!(target instanceof Element)) return false;
+  return !!target.closest('button, a, input, textarea, select, [contenteditable], #settings-root');
+};
+
 export function lockWebGestures(): void {
   const opt: AddEventListenerOptions = { capture: true, passive: false };
 
@@ -21,14 +26,18 @@ export function lockWebGestures(): void {
   document.addEventListener(
     'touchstart',
     (ev) => {
-      if (ev.touches.length > 1) ev.preventDefault();
+      if (ev.touches.length > 1) {
+        ev.preventDefault();
+        return;
+      }
+      if (!allowNative(ev.target)) ev.preventDefault();
     },
     opt,
   );
   document.addEventListener(
     'touchmove',
     (ev) => {
-      if (ev.touches.length > 1) ev.preventDefault();
+      if (ev.touches.length > 1 || !allowNative(ev.target)) ev.preventDefault();
     },
     opt,
   );

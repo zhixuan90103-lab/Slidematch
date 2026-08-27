@@ -5,7 +5,7 @@
 ## 一句话
 
 **TypeScript + Three.js WebGPU + Vite + Capacitor iOS**，设计空间 **390×844** contain letterbox。  
-玩法：**6×6** 滑动连同色，**四向**（只横竖），**≥2** 抬手消除；静止子可划。规范地图：[docs/SPEC.md](./docs/SPEC.md)。玩法 [DESIGN.md](./docs/DESIGN.md)；道具 [ITEMS.md](./docs/ITEMS.md)；反馈 [FEEDBACK.md](./docs/FEEDBACK.md)；手感 [OPERATION.md](./docs/OPERATION.md)；数字 [src/game/design.ts](./src/game/design.ts)（`LOOK` / `RULES` / `FEEL`）。
+玩法：**6×6** 滑动连同色，**四向**（只横竖），**≥2** 抬手消除；静止子可划。规范地图：[docs/SPEC.md](./docs/SPEC.md)。玩法 [DESIGN.md](./docs/DESIGN.md)；道具 [ITEMS.md](./docs/ITEMS.md)；反馈 [FEEDBACK.md](./docs/FEEDBACK.md)；手感 [OPERATION.md](./docs/OPERATION.md)；数字 [src/game/design.ts](./src/game/design.ts)（`LOOK` / `RULES` / `FEEL` / `HUD`）。
 
 ## 文档
 
@@ -34,7 +34,7 @@
 | 职责 | 文件 |
 |------|------|
 | Web 启动 | `index.html` → `src/main.ts` |
-| 产品设计数字 | `src/game/design.ts`（`LOOK` / `RULES` / `FEEL` / `PIECE_DRAW`） |
+| 产品设计数字 | `src/game/design.ts`（`LOOK` / `HUD` / `RULES` / `FEEL` / `PIECE_DRAW`） |
 | 道具规则 | `src/game/items.ts` |
 | 分数 | `src/game/score.ts` |
 | 消除碎屑 | `src/game/clearFx.ts` |
@@ -44,7 +44,7 @@
 | 设计舞台 | `src/adapt/design.ts` |
 | 设备预览 | `src/adapt/devicePreview.ts` |
 | Safe Area | `src/adapt/safeArea.ts` + `#hud` 的 padding |
-| 禁网页手势 | `src/adapt/lockGestures.ts` |
+| 禁网页手势 | `src/adapt/lockGestures.ts`（缩放 / 长按放大镜；系统缘滑拦不掉） |
 | WebGPU 底 | `src/create-renderer.ts` |
 | 震动 | `src/utils/haptics.ts` · `docs/HAPTICS.md` §0 |
 | Capacitor | `capacitor.config.ts`（`contentInset: never`） |
@@ -75,7 +75,7 @@
 7. 改 Swift 改 `plugins/native-haptics/` 再 `ios:bootstrap`；不要用 JS `prepare()` 判断是否接上。**SceneDelegate 必须 `BridgeViewController()`**，不能是 `CAPBridgeViewController()`  
 8. **无 WebGPU 则明确失败**，不静默 WebGL  
 9. 盘内点中用浅格 **DOM rect**；追加路径见 [OPERATION.md](./docs/OPERATION.md)（尾格四邻过边/进格，禁止全盘最近格）  
-10. 视觉/规则/下落/反馈默认写在 `src/game/design.ts`（`LOOK` / `RULES` / `FEEL` / `PIECE_DRAW`），不要在 `mount.ts` 里另写一套数字  
+10. 视觉/规则/下落/反馈/HUD 默认写在 `src/game/design.ts`（`LOOK` / `HUD` / `RULES` / `FEEL` / `PIECE_DRAW`），不要在 `mount.ts` 里另写一套数字  
 
 ## 命令
 

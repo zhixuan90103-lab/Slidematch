@@ -34,6 +34,16 @@ stable 格 ≥ `pathMin` 才结算。滑动中不消、不出道具。
 
 同路两种：魔法优先。变色子在路径里只当被消的一格。
 
+### 顶补色种
+
+**分数不解锁色种。** 仅本划 **含魔法且抬手有效** 后步进；变色、普通划、弹出新道具都不改。一次划只走一档，禁止抽绝对档（3 不能一次到 5）。只影响之后顶补。数字：`RULES.colorCountDownWeight` / `colorCountUpWeight`，实现 `stepColorCount`。
+
+| 当前 | 约 55%（降） | 约 45%（加） |
+|------|-------------|-------------|
+| 3 | 保持 3 | → 4（心进池） |
+| 4 | → 3 | → 5（星进池） |
+| 5 | → 4 | 保持 5 |
+
 ### 变色散消 `extraClearCells`
 
 1. 锁定色 = `path.color`（&lt; 0 则无散消）。
@@ -59,18 +69,18 @@ stable 格 ≥ `pathMin` 才结算。滑动中不消、不出道具。
 
 ## 代码
 
-抬手只算一次 `resolveStroke`（散消格 + 生成色），再交给 `beginClear` 与 `strokeScore`，不要各算一遍。
+抬手只算一次 `resolveStroke`（散消格 + 生成色），再交给 `beginClear` 与 `strokeScore`，不要各算一遍。色种步进不进 `resolveStroke`：`path.magic` 时 `mount` 调 `stepColorCount`。
 
 | 文件 | 职责 |
 |------|------|
 | `src/game/items.ts` | 生成、散消、显示色、`resolveStroke` |
 | `src/game/convertLook.ts` | 换锁色/魔法白板：锁色、want、扩散原点 |
-| `src/game/scoreFly.ts` | 魔法路径金币飞向 SCORE |
+| `src/game/scoreFly.ts` | 魔法路径金币飞向 HUD 金币图标 |
 | `src/game/path.ts` | 四邻加/减；`canLinkColor` / `applyLinkColor` |
-| `src/game/mount.ts` | 抬手一次 resolve；变色气泡/标记；合成飞入；魔法贴图 |
-| `src/game/drop.ts` | 消格、飞入腾格、道具格锁定；不解释道具语义 |
+| `src/game/mount.ts` | 抬手一次 resolve；变色气泡/标记；合成飞入；魔法贴图；魔法后 `stepColorCount` |
+| `src/game/drop.ts` | 消格、飞入腾格、道具格锁定；不解释道具语义；顶补用 `sim.colorCount` |
 | `src/game/clearFx.ts` | 碎屑 |
 | `src/game/score.ts` | n = 路径 + extraCells；倍率 |
-| `src/game/design.ts` | `itemMin` / `magicMin` / 色号 |
+| `src/game/design.ts` | `itemMin` / `magicMin` / 色号 / `stepColorCount` |
 
 禁止：滑动中消子或出道具；按钮式全盘清；顶补出道具；魔法叠滤镜；变色整色清场。

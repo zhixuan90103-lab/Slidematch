@@ -18,7 +18,7 @@ Slidematch/
 │   ├── create-renderer.ts
 │   ├── game/               # design config settings board mount path drop
 │   ├── assets/             # 框 / 浅格 / 黏土牌 PNG / Inter
-│   ├── adapt/
+│   ├── adapt/              # lockGestures：禁网页缩放/长按放大镜
 │   └── utils/haptics.ts
 ├── plugins/native-haptics/
 └── scripts/bootstrap-ios.mjs
@@ -93,10 +93,12 @@ renderer.setSize(390, 844)          // 始终设计分辨率
 
 真源：`plugins/native-haptics/`  
 JS：`src/utils/haptics.ts`（`registerPlugin('AdvancedHaptics')`）  
-注册：`BridgeViewController.capacitorDidLoad`（**必须** `ios:bootstrap`，只 `cap:sync` 不够）
+注册：`BridgeViewController.capacitorDidLoad`（**必须** `ios:bootstrap`，只 `cap:sync` 不够）  
+**SceneDelegate** 必须 `window?.rootViewController = BridgeViewController()`。写成 `CAPBridgeViewController()` 插件永远不注册；`ios:bootstrap` 会改这一行。
 
 Swift **没有** `prepare`；引擎在 `load()` 启动。不要用 JS `prepare()` 判断是否接上。  
-业务节奏（具名事件、cooldown、开关）写在游戏层，不要改插件除非新增原生方法。
+玩法 I/S：`FEEL.haptic`（按下 / 过格 / 回退 / 散消点子 / 找对）。  
+业务节奏写在游戏层，不要改插件除非新增原生方法。
 
 ## 7b. Audio（尚未实现）
 
@@ -125,13 +127,15 @@ npm run cap:sync
 4. pbxproj 优先 bootstrap，少手改  
 5. `dist` / `ios/.../public` 是产物  
 6. appId 用 `com.slidematch.play`，不要改回脚手架 id  
-7. 震动没接上：先看 [HAPTICS.md §0](./HAPTICS.md)，不要只 `cap:sync`，不要用 `prepare()` 当验收  
+7. 震动没接上：先看 [HAPTICS.md §0](./HAPTICS.md)，不要只 `cap:sync`，不要用 `prepare()` 当验收；先查 SceneDelegate 是不是 `BridgeViewController()`  
 8. 棋盘坐标是 `#stage` 的 10.5 / 250.5，不要再套一层 safe padding  
+9. iOS 长按放大镜：`-webkit-touch-callout: none` + `format-detection` + `lockGestures` 单指 preventDefault。系统缘滑/Home 拦不掉  
 
 ## 10. 变更
 
 | 日期 | 说明 |
 |------|------|
+| 2026-08-27 | SceneDelegate → BridgeViewController；震动 I/S；禁长按放大镜 |
 | 2026-08-21 | 规格冻结：6×6、≥2、LOOK/PIECE_DRAW；黏土牌 + 下投影；文档对齐 |
 | 2026-08-20 | 烘焙美术、视觉/逻辑盘分离、调参默认 380 盘 |
 | 2026-08-19 | 玩法文档落地；静盘阶段 A |

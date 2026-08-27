@@ -42,7 +42,9 @@ cy = row * sy + cellH / 2
 
 监听挂在 **`#game-board`**（含框）。棋盘外（HUD、letterbox、桌面背景）按下 **不开始**。
 
-- 只认 **第一指**。`setPointerCapture`。棋盘 `touch-action: none`。`lockGestures` 禁网页缩放。
+- 只认 **第一指**。`setPointerCapture`。棋盘 `touch-action: none`。
+- `lockGestures` + CSS：禁网页双指缩放、双击放大、长按放大镜/呼出菜单（`-webkit-touch-callout: none`）、`user-select`、SCORE 电话号码检测。单指 `touchstart`/`touchmove` 在非按钮区 `preventDefault`。设置面板仍可点。
+- 系统 Home 上滑、缘滑返回、控制中心：**网页关不掉**。
 - `pointermove`：若存在 `getCoalescedEvents()` 且返回非空，**按时间顺序**对每个合批点采样；否则用当前点。合批点不是第二套规则。
 - `pointerup`：用松手点再走一遍滑动算法后结算。
 - `pointercancel`：若因第二指，用 touch 通道按同一 `identifier` 续划，**不当抬手**。无 touch 备份才真取消（名单清空）。

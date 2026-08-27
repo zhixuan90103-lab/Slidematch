@@ -1,6 +1,6 @@
-import { COLS, FRAME_SCALE, FRAME_SLICE, LOOK, PIECE_ASPECT, ROWS } from './config';
+import { COLS, FRAME_SCALE, FRAME_SLICE, HUD, LOOK, PIECE_ASPECT, ROWS } from './config';
 
-const KEY = 'slidematch.tune.v16';
+const KEY = 'slidematch.tune.v21';
 
 export type Tune = {
   visualWidth: number;
@@ -14,10 +14,28 @@ export type Tune = {
   dropVMax: number;
   maskInset: number;
   maskRadius: number;
+  hudPanelHeight: number;
+  hudGutter: number;
+  hudLabelSize: number;
+  hudScoreSize: number;
+  hudScoreY: number;
+  hudCoinSize: number;
+  hudCoinIconH: number;
+  hudLabelY: number;
 };
 
-/** 与 `LOOK` 同一套默认；设置里「恢复默认」回到设计值。 */
-export const TUNE_DEFAULTS: Tune = { ...LOOK };
+/** 与 `LOOK` / `HUD` 同一套默认；设置里「恢复默认」回到设计值。 */
+export const TUNE_DEFAULTS: Tune = {
+  ...LOOK,
+  hudPanelHeight: HUD.panelHeight,
+  hudGutter: HUD.gutter,
+  hudLabelSize: HUD.labelSize,
+  hudScoreSize: HUD.scoreSize,
+  hudScoreY: HUD.scoreY,
+  hudCoinSize: HUD.coinSize,
+  hudCoinIconH: HUD.coinIconH,
+  hudLabelY: HUD.labelY,
+};
 
 export type BoardLayout = {
   visualWidth: number;
@@ -53,6 +71,14 @@ export function loadTune(): Tune {
       dropVMax: clamp(parsed.dropVMax ?? TUNE_DEFAULTS.dropVMax, 150, 2500),
       maskInset: clamp(parsed.maskInset ?? TUNE_DEFAULTS.maskInset, 0, 48),
       maskRadius: clamp(parsed.maskRadius ?? TUNE_DEFAULTS.maskRadius, 0, 64),
+      hudPanelHeight: clamp(parsed.hudPanelHeight ?? TUNE_DEFAULTS.hudPanelHeight, 72, 160),
+      hudGutter: clamp(parsed.hudGutter ?? TUNE_DEFAULTS.hudGutter, 6, 28),
+      hudLabelSize: clamp(parsed.hudLabelSize ?? TUNE_DEFAULTS.hudLabelSize, 10, 22),
+      hudScoreSize: clamp(parsed.hudScoreSize ?? TUNE_DEFAULTS.hudScoreSize, 22, 64),
+      hudScoreY: clamp(parsed.hudScoreY ?? TUNE_DEFAULTS.hudScoreY, -32, 32),
+      hudCoinSize: clamp(parsed.hudCoinSize ?? TUNE_DEFAULTS.hudCoinSize, 16, 48),
+      hudCoinIconH: clamp(parsed.hudCoinIconH ?? TUNE_DEFAULTS.hudCoinIconH, 24, 72),
+      hudLabelY: clamp(parsed.hudLabelY ?? TUNE_DEFAULTS.hudLabelY, -32, 32),
     };
   } catch {
     return { ...TUNE_DEFAULTS };

@@ -15,13 +15,13 @@
 
 - 底座：390×844、contain、透明 WebGPU、舞台 `#fdf1e7`  
 - 美术：框九宫、薰衣草浅格、黏土牌 PNG（360×430；盘面水滴 / 叶 / 太阳）  
-- HUD：SCORE + 设置  
-- 调参：覆盖 `LOOK`，默认即设计  
+- HUD：左 COINS + 右 SCORE（九宫底）  
+- 调参：覆盖 `LOOK` / `HUD`，默认即设计；局内按钮隐藏  
 
 ## 代码
 
 ```
-src/game/design.ts     LOOK / ART / GRID / RULES / FEEL（含 haptic） / PIECE_DRAW
+src/game/design.ts     LOOK / ART / GRID / RULES / FEEL / HUD / PIECE_DRAW / `stepColorCount`
 src/game/config.ts     行列、框切片、yaw 横条、warmup
 src/game/perfLog.ts    真机帧时日志
 src/game/pathBadge.ts  路径角标出现/队尾缩放/消失
@@ -32,7 +32,7 @@ src/game/settings.ts   调参与 layout
 src/game/board.ts      点中、初盘保证 ≥ PATH_MIN 连通
 src/game/mount.ts      DOM、选中、角标、合成飞入、魔法三层、脏格子 rAF
 src/game/convertLook.ts 换锁色 / 魔法白板显示
-src/game/scoreFly.ts   魔法金币飞向 SCORE
+src/game/scoreFly.ts   魔法金币飞向 HUD 图标
 src/assets/            见 BOARD.md
 ```
 

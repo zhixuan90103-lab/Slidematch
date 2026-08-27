@@ -105,8 +105,8 @@ export const FEEL = {
     holdSec: 0.5,
     /** 散消标记 Additive 透明度。 */
     markGlow: 0.1,
-    /** 魔法白板 Additive。金币仍用 select.glowOpacity 0.18。 */
-    blankGlow: 0.05,
+    /** 魔法白板不再叠 Additive；金币用 select.glowOpacity 0.18。 */
+    blankGlow: 0,
     /** 路径普通子换锁色：yaw 翻面时长。 */
     recolorSec: 0.2,
     /** 魔法取消翻回时长。 */
@@ -127,16 +127,23 @@ export const FEEL = {
     recolorScale: 1.35,
     /** 魔法翻牌按圈扩散：每圈（切比雪夫）延迟。 */
     rippleStepSec: 0.05,
-    /** 魔法消除：金币飞向 SCORE 的时长 / 错开 / 弧高 / 终点缩放。 */
+    /** 魔法消除：金币飞向 HUD 金币图标的时长 / 错开 / 弧高。 */
     scoreFlySec: 0.48,
-    /** 飞向 SCORE：同一飞行速度；行与行错开，同行内列只差一点点。 */
+    /** 飞向图标：同一飞行速度；行与行错开，同行内列只差一点点。 */
     scoreFlyRowStagger: 0.07,
     scoreFlyColStagger: 0.01,
     scoreFlyArc: 12,
-    /** 飞向 SCORE 缩放：前 1/3 放大，后 2/3 收到 0.4。 */
+    /** 飞向图标缩放：前 1/3 放大，后 2/3 收到 HUD 图标 × endMul。 */
     scoreFlyStartScale: 1,
     scoreFlyPeakScale: 1.15,
     scoreFlyEndScale: 0.4,
+    /** 终点相对 HUD 金币图标的大小。 */
+    scoreFlyEndMul: 0.55,
+    /** 飞行进度从这一处开始淡出，到达终点时为 0。 */
+    scoreFlyFadeStart: 0.62,
+    /** 每枚打中：图标放大再回。 */
+    coinIconPunch: 1.22,
+    coinIconPunchSec: 0.14,
     /** 松手选中散子：停住比路径更大，过冲更大。 */
     scale: 1.1,
     lift: 9,
@@ -322,11 +329,12 @@ export function itemPopMotion(u: number, amp = 1): { scale: number; lift: number
 export const RULES = {
   /** 抬手有效路径最短长度。 */
   pathMin: 2,
-  /** 开局色数；顶补随分数解锁到 max。 */
+  /** 开局顶补色种。仅魔法抬手后 ±1，夹在 [colorCount, colorCountMax]。 */
   colorCount: 3,
   colorCountMax: 5,
-  /** 第 4、第 5 色解锁累计分（心 / 星）。 */
-  colorUnlockAt: [5000, 15000],
+  /** 降一档（已在 3 则保持 3）: 加一档（已在 5 则保持 5）。11:9 ≈ 55% / 45%。 */
+  colorCountDownWeight: 11,
+  colorCountUpWeight: 9,
   /** 4 = 只横竖；对角非法。 */
   neighborhood: 4,
   /** 普通划（路径无道具）≥ 此值，队尾出变色子。 */
@@ -345,6 +353,8 @@ export const RULES = {
   scoreConvertMul: 2,
   /** 路径含魔法（优先于变色，不叠乘）。 */
   scoreMagicMul: 3,
+  /** 魔法有效抬手：路径每格 +1 金币（本局累计，飞向金币栏）。 */
+  coinPerMagicCell: 1,
   /** HUD 数字滚动最短/最长（秒）。 */
   scoreRollMinSec: 0.2,
   scoreRollMaxSec: 0.9,
@@ -352,19 +362,49 @@ export const RULES = {
   scoreRollPerPoint: 0.0012,
 } as const;
 
-/** 累计分对应的普通色种数（3→4→5）。 */
-export function colorCountForScore(score: number): number {
-  let n: number = RULES.colorCount;
-  if (score >= RULES.colorUnlockAt[0]!) n = 4;
-  if (score >= RULES.colorUnlockAt[1]!) n = 5;
-  return Math.min(n, RULES.colorCountMax);
+/** 用完魔法后只 ±1。3 为下限（再降保持 3），5 为上限（再加保持 5）。 */
+export function stepColorCount(current: number, rand: () => number = Math.random): number {
+  const min = RULES.colorCount;
+  const max = RULES.colorCountMax;
+  const cur = Math.min(max, Math.max(min, current));
+  const down = RULES.colorCountDownWeight;
+  const up = RULES.colorCountUpWeight;
+  const goDown = rand() * (down + up) < down;
+  if (goDown) return Math.max(min, cur - 1);
+  return Math.min(max, cur + 1);
 }
 
 export const HUD = {
   label: 'SCORE',
+  coinLabel: 'COINS',
   labelColor: '#c47ee0',
   scoreColor: '#8f5a3c',
+  coinColor: '#8f5a3c',
   font: 'Inter',
+  /** 分数 / 金币底板：`hud-panel.png` 九宫切片（源图像素）。 */
+  panelSlice: 52,
+  /** 切片 → 显示边宽；对齐效果图圆角，不要把字顶出内容区。 */
+  panelScale: 0.23,
+  /** 金币方形边长 = 分数栏高度。 */
+  panelHeight: 130,
+  /** 屏幕左右边距 = 两栏间距。 */
+  gutter: 14,
+  labelSize: 20,
+  labelLine: 23,
+  scoreSize: 45,
+  coinSize: 36,
+  coinIconW: 38,
+  coinIconH: 45,
+  /** 标题相对默认行：负上、正下。 */
+  labelY: 25,
+  /** 分数数字高低。 */
+  scoreY: 15,
+  /** 金币图标钉死。相对「图标 + 一位数字」居中组再微移，不是相对左边缘。 */
+  coinIconX: -8,
+  coinIconY: 15,
+  /** 金币数字槽：以图标右侧剩余空间中心为原点。 */
+  coinNumX: 8,
+  coinNumY: 15,
 } as const;
 
 export const APP = {

@@ -14,6 +14,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="format-detection" content="telephone=no, email=no, address=no" />
     <title>SlideMatch</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
@@ -24,18 +25,17 @@
           <div id="stage" aria-label="game-stage">
             <div id="ui-root">
               <div id="hud">
-                <div class="hud-score-wrap">
+                <div class="hud-coins hud-panel" id="hud-coins-wrap" aria-label="本局金币">
+                  <p class="hud-label">COINS</p>
+                  <div class="hud-coins-row">
+                    <span class="hud-coins-icon" aria-hidden="true"></span>
+                    <span id="hud-coins" class="hud-coins-n">0</span>
+                  </div>
+                </div>
+                <div class="hud-score-wrap hud-panel">
                   <p class="hud-label">SCORE</p>
                   <p id="hud-score" class="hud-score">0</p>
                 </div>
-                <button type="button" id="btn-settings" aria-label="设置">
-                  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-                    <path
-                      fill="currentColor"
-                      d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.8a.5.5 0 0 0-.49.42l-.36 2.54c-.59.24-1.13.55-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.48a.5.5 0 0 0 .12.64L4.86 10.7c-.04.31-.06.63-.06.94s.02.63.06.94L2.83 14.16a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.42.34.68.22l2.39-.96c.5.39 1.04.7 1.63.94l.36 2.54c.05.24.25.42.49.42h3.8c.24 0 .44-.18.49-.42l.36-2.54c.59-.24 1.13-.55 1.63-.94l2.39.96c.26.12.54.02.68-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"
-                    />
-                  </svg>
-                </button>
               </div>
             </div>
           </div>

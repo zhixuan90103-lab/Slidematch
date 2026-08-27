@@ -16,7 +16,7 @@
 index.html
   → style.css
   → main.ts
-       → lockWebGestures / safeArea
+       → lockWebGestures（禁缩放/长按放大镜） / safeArea
        → createRenderer(#stage)     透明，不挡舞台底色
        → mountDevicePreview → stage transform
        → mountBoard(#ui-root)       视觉框 + 6×6 黏土棋子
@@ -51,16 +51,16 @@ index.html
 
 | 要改 | 文件 |
 |------|------|
-| 视觉/规则默认 | `src/game/design.ts`（`LOOK` / `PIECE_DRAW` / `RULES` / `FEEL`） |
+| 视觉/规则默认 | `src/game/design.ts`（`LOOK` / `HUD` / `PIECE_DRAW` / `RULES` / `FEEL`） |
 | 选中/消除/变色/合成反馈 | [FEEDBACK.md](./FEEDBACK.md) · `FEEL` · `clearFx.ts` · `mount.ts` · `convertLook.ts` · `scoreFly.ts` |
 | yaw 横条 | `src/assets/fx-preview/yaw-2d/*/yaw_strip.png` · `scripts/pack-yaw-atlas.py` · `config.ts` |
 | 真机帧时 | `perfLog.ts` · `?debugPerf=1` · [PERF.md](./PERF.md) |
 | 路径角标 | `pathBadge.ts` · `FEEL.select.badge*`（进局 36 池，opacity 隐藏） |
 | 震动玩法 | `FEEL.haptic` · `haptics.playTransient` / `playPattern` · [HAPTICS.md](./HAPTICS.md) §0.8 |
-| 调参覆盖 | `src/game/settings.ts`；HUD 齿轮 → `#settings-root` |
+| 调参覆盖 | `src/game/settings.ts`；`#settings-root`（按钮隐藏） |
 | 素材 | `src/assets/` · [BOARD.md](./BOARD.md) |
 | 道具生成/结算 | `src/game/items.ts` · [ITEMS.md](./ITEMS.md) |
-| 分数 | `src/game/score.ts` · [DESIGN.md](./DESIGN.md) |
+| 分数 / 本局金币 | `src/game/score.ts` · [DESIGN.md](./DESIGN.md) · HUD 见 [BOARD.md](./BOARD.md) |
 | 初盘 / 点中 | `src/game/board.ts` |
 | 盘 DOM | `src/game/mount.ts` · `style.css` |
 | 玩法规则 | [DESIGN.md](./DESIGN.md) |

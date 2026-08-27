@@ -22,13 +22,16 @@ import {
 
   type LookFrame,
   convertRecolorScale,
-  colorCountForScore,
+  stepColorCount,
   coinAppearMotion,
   CONVERT_RECOLOR_IN,
   CONVERT_RECOLOR_OUT,
   COIN_LOOK,
+  COIN_PER_MAGIC_CELL,
   FRAME_SLICE,
+  HUD,
   PATH_MIN,
+  PIECE_ASPECT,
 
   ROWS,
   STAGE,
@@ -69,7 +72,15 @@ import {
 import { magicClearDelay, scoreFlyEase, scoreFlyScale, type ScoreFly } from './scoreFly';
 import { badgeBoxPx, badgeFontPx, badgeTargetPx, tickBadgeMotion, type BadgeMotion } from './pathBadge';
 import { createPerfLog, type PerfScene } from './perfLog';
-import { commitStroke, createScoreRoll, linkPreview, setScoreTarget, strokeScore, tickScoreRoll } from './score';
+import {
+  commitStroke,
+  createScoreRoll,
+  linkPreview,
+  setScoreTarget,
+  strokeCoins,
+  strokeScore,
+  tickScoreRoll,
+} from './score';
 import {
   beginPath,
   canCommit,
@@ -95,17 +106,79 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   let tune = loadTune();
   let layout = computeLayout(tune);
 
+  const hudBar = uiRoot.querySelector('#hud') as HTMLElement;
   const hud = uiRoot.querySelector('#hud-score')!;
+  const hudCoins = uiRoot.querySelector('#hud-coins')!;
+  const hudCoinsWrap = uiRoot.querySelector('#hud-coins-wrap')!;
+  const hudCoinIcon = hudCoinsWrap.querySelector('.hud-coins-icon') as HTMLElement;
+  const applyHud = () => {
+    const panelW = Math.round(HUD.panelSlice * HUD.panelScale);
+    const iconH = tune.hudCoinIconH;
+    const iconW = Math.round(iconH / PIECE_ASPECT);
+    const labelLine = tune.hudLabelSize + 3;
+    hudBar.style.setProperty('--hud-panel-slice', String(HUD.panelSlice));
+    hudBar.style.setProperty('--hud-panel-width', `${panelW}px`);
+    hudBar.style.setProperty('--hud-panel-height', `${tune.hudPanelHeight}px`);
+    hudBar.style.setProperty('--hud-gutter', `${tune.hudGutter}px`);
+    hudBar.style.setProperty('--hud-label-size', `${tune.hudLabelSize}px`);
+    hudBar.style.setProperty('--hud-label-line', `${labelLine}px`);
+    hudBar.style.setProperty('--hud-score-size', `${tune.hudScoreSize}px`);
+    hudBar.style.setProperty('--hud-score-y', `${tune.hudScoreY}px`);
+    hudBar.style.setProperty('--hud-coin-size', `${tune.hudCoinSize}px`);
+    hudBar.style.setProperty('--hud-coin-icon-w', `${iconW}px`);
+    hudBar.style.setProperty('--hud-coin-icon-h', `${iconH}px`);
+    hudBar.style.setProperty('--hud-label-y', `${tune.hudLabelY}px`);
+    hudBar.style.setProperty('--hud-coin-icon-x', `${HUD.coinIconX}px`);
+    hudBar.style.setProperty('--hud-coin-icon-y', `${HUD.coinIconY}px`);
+    hudBar.style.setProperty('--hud-coin-num-x', `${HUD.coinNumX}px`);
+    hudBar.style.setProperty('--hud-coin-num-y', `${HUD.coinNumY}px`);
+    const gap = 4;
+    const refNum = Math.round(tune.hudCoinSize * 0.62);
+    const inner = tune.hudPanelHeight - 2 * panelW;
+    const anchor = Math.round((inner - iconW - gap - refNum) / 2 + HUD.coinIconX);
+    hudBar.style.setProperty('--hud-coin-gap', `${gap}px`);
+    hudBar.style.setProperty('--hud-coin-anchor', `${anchor}px`);
+    requestAnimationFrame(() => fitCoinNum());
+  };
   const perf = createPerfLog(uiRoot);
   const scoreRoll = createScoreRoll();
+  const coinRoll = createScoreRoll();
+  let coins = 0;
+  let iconPunchT = -1;
+  const fitCoinNum = () => {
+    const el = hudCoins as HTMLElement;
+    const max = tune.hudCoinSize;
+    const min = 10;
+    el.style.fontSize = `${max}px`;
+    const cap = el.clientWidth;
+    if (cap <= 1) return;
+    if (el.scrollWidth <= cap) return;
+    let lo = min;
+    let hi = max;
+    let best = min;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      el.style.fontSize = `${mid}px`;
+      if (el.scrollWidth <= cap) {
+        best = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    el.style.fontSize = `${best}px`;
+  };
   const paintHud = () => {
     hud.textContent = String(scoreRoll.displayed);
+    hudCoins.textContent = String(coinRoll.displayed);
+    fitCoinNum();
   };
   const aimHud = (target: number) => {
     setScoreTarget(scoreRoll, target);
     paintHud();
     ensureLoop();
   };
+  applyHud();
   paintHud();
 
   const board = document.createElement('div');
@@ -149,6 +222,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
 
 
   const applyLayout = () => {
+    applyHud();
     layout = computeLayout(tune);
     const left = (DESIGN_WIDTH - layout.visualWidth) / 2;
     const top = (DESIGN_HEIGHT - layout.visualHeight) / 2 + STAGE.boardOffsetY;
@@ -199,6 +273,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     for (const img of pieceEls.values()) setPieceBitmapSize(img);
     for (const img of glowEls.values()) setPieceBitmapSize(img);
     for (const img of blankGlowEls.values()) setPieceBitmapSize(img);
+    for (const img of coinGlowEls.values()) setPieceBitmapSize(img);
 
     for (const img of coinEls.values()) setPieceBitmapSize(img);
     for (const img of imgPool) setPieceBitmapSize(img);
@@ -217,6 +292,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   const pieceEls = new Map<number, HTMLElement>();
   const glowEls = new Map<number, HTMLElement>();
   const blankGlowEls = new Map<number, HTMLElement>();
+  const coinGlowEls = new Map<number, HTMLElement>();
   const coinEls = new Map<number, HTMLElement>();
   const blankEls = new Map<number, HTMLElement>();
   const scoreFlies: ScoreFly[] = [];
@@ -658,21 +734,21 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       const blank = blankEls.get(piece.id);
       if (blank && blank.style.opacity !== '0') blank.style.opacity = '0';
     }
+    const coinLook =
+      rec && goldU < 1 && goldU >= 0 ? goldSpinLook(goldU, leavingBlank) : goldSpinLook(1, false);
+    let coinXf = xf;
     if (coinLive) {
       let coin = coinEls.get(piece.id);
       if (!coin) {
         coin = acquireCoin();
         coinEls.set(piece.id, coin);
       }
-      applyLook(
-        coin,
-        rec && goldU < 1 && goldU >= 0 ? goldSpinLook(goldU, leavingBlank) : goldSpinLook(1, false),
-      );
+      applyLook(coin, coinLook);
       const appearU = Math.min(1, Math.max(0, goldU));
       const appear = leavingBlank
         ? { opacity: coinFade, scale: 1, lift: 0 }
         : coinAppearMotion(appearU);
-      const coinXf = pieceLayerTransform(
+      coinXf = pieceLayerTransform(
         x,
         y - liftY - appear.lift,
         piece.scaleX * popS * clearS * popScale,
@@ -694,7 +770,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       if (coin && coin.style.opacity !== '0') coin.style.opacity = '0';
     }
 
-    const wantGlow = fade > 0.08 && glowAmt > 0.02 && !coinLive;
+    const wantGlow = fade > 0.08 && glowAmt > 0.02;
     const pathGlowOp = onPath ? FEEL.select.glowOpacity : FEEL.convert.markGlow;
     const paintGlow = (
       map: Map<number, HTMLElement>,
@@ -723,21 +799,16 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       releaseGlow(glow);
       map.delete(piece.id);
     };
-    if (wantGlow && wantBlank) {
-      paintGlow(
-        blankGlowEls,
-        rec && magicRec ? convertBlankLook(rec.from, rec.to, recU) : blankRestLook(),
-        el.style.transform,
-        13 + z,
-        FEEL.convert.blankGlow,
-      );
-      dropGlow(glowEls);
-    } else if (wantGlow) {
+    dropGlow(blankGlowEls);
+    if (wantGlow && !coinLive) {
       paintGlow(glowEls, look, el.style.transform, 11 + z, pathGlowOp);
-      dropGlow(blankGlowEls);
     } else {
-      dropGlow(blankGlowEls);
       dropGlow(glowEls);
+    }
+    if (wantGlow && coinLive) {
+      paintGlow(coinGlowEls, coinLook, coinXf, 14 + z, FEEL.select.glowOpacity);
+    } else {
+      dropGlow(coinGlowEls);
     }
     const order = pathOrder.get(`${pieceRow},${piece.col}`);
     const cap = pendingConvert ? pendingConvert.shown : 999;
@@ -911,6 +982,12 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       releaseGlow(el);
       blankGlowEls.delete(id);
     }
+    for (const [id, el] of coinGlowEls) {
+      if (sim.pieces.has(id) && pathKeys.size) continue;
+      el.classList.remove('is-on');
+      releaseGlow(el);
+      coinGlowEls.delete(id);
+    }
 
     for (const [id, el] of coinEls) {
       if (sim.pieces.has(id)) continue;
@@ -938,6 +1015,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     for (const id of shadowK.keys()) ids.add(id);
     for (const id of badgeMo.keys()) ids.add(id);
     for (const id of glowEls.keys()) ids.add(id);
+    for (const id of coinGlowEls.keys()) ids.add(id);
     for (const piece of sim.pieces.values()) {
       if (piece.state === 'clearing') continue;
       const key = `${piece.destRow ?? piece.sourceRow},${piece.col}`;
@@ -1087,23 +1165,30 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     }
   };
 
-  const scoreTargetInUi = (): { x: number; y: number } => {
+  const scoreTargetInUi = (): { x: number; y: number; w: number; h: number } => {
     const uiRect = uiRoot.getBoundingClientRect();
-    const hudRect = hud.getBoundingClientRect();
+    const dest = hudCoinIcon.getBoundingClientRect();
     const sx = uiRect.width > 0 ? DESIGN_WIDTH / uiRect.width : 1;
     const sy = uiRect.height > 0 ? DESIGN_HEIGHT / uiRect.height : 1;
     return {
-      x: (hudRect.left + hudRect.width / 2 - uiRect.left) * sx,
-      y: (hudRect.top + hudRect.height / 2 - uiRect.top) * sy,
+      x: (dest.left + dest.width / 2 - uiRect.left) * sx,
+      y: (dest.top + dest.height / 2 - uiRect.top) * sy,
+      w: dest.width * sx,
+      h: dest.height * sy,
     };
   };
 
   const spawnScoreFlies = (cells: Cell[]) => {
+    const before = scoreFlies.length;
     const dest = scoreTargetInUi();
     const boardLeft = Number.parseFloat(board.style.left || '0') || 0;
     const boardTop = Number.parseFloat(board.style.top || '0') || 0;
     const w = layout.pieceW * FEEL.convert.coinScale;
     const h = layout.pieceH * FEEL.convert.coinScale;
+    const endScale =
+      w > 0 && dest.w > 0
+        ? (dest.w / w) * FEEL.convert.scoreFlyEndMul
+        : FEEL.convert.scoreFlyEndScale;
     const delayOf = magicClearDelay(cells);
     const ordered = cells.slice().sort((a, b) => a.row - b.row || a.col - b.col);
     ordered.forEach((cell) => {
@@ -1123,14 +1208,48 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         delay: delayOf(cell),
         w,
         h,
+        endScale,
+        hit: false,
+        fade: 0,
       });
     });
+    if (scoreFlies.length === before) setScoreTarget(coinRoll, coins);
+  };
+
+  const punchCoinIcon = () => {
+    iconPunchT = 0;
+    hudBar.style.setProperty('--hud-coin-icon-punch', String(FEEL.convert.coinIconPunch));
+  };
+
+  const onCoinLand = () => {
+    setScoreTarget(coinRoll, Math.min(coins, coinRoll.target + COIN_PER_MAGIC_CELL));
+    punchCoinIcon();
+    paintHud();
+    ensureLoop();
+  };
+
+  const tickIconPunch = (dt: number): boolean => {
+    if (iconPunchT < 0) return false;
+    iconPunchT += dt;
+    const sec = FEEL.convert.coinIconPunchSec;
+    const u = Math.min(1, iconPunchT / sec);
+    const peak = FEEL.convert.coinIconPunch;
+    const rest = 1 - u;
+    const s = 1 + (peak - 1) * rest * rest;
+    hudBar.style.setProperty('--hud-coin-icon-punch', String(s));
+    if (u >= 1) {
+      iconPunchT = -1;
+      hudBar.style.setProperty('--hud-coin-icon-punch', '1');
+      return false;
+    }
+    return true;
   };
 
   const tickScoreFlies = (dt: number): boolean => {
-    if (!scoreFlies.length) return false;
+    if (!scoreFlies.length && iconPunchT < 0) return false;
     const arc = FEEL.convert.scoreFlyArc;
     const spin = FEEL.convert.coinSpinSec;
+    const fadeStart = FEEL.convert.scoreFlyFadeStart;
     for (let i = scoreFlies.length - 1; i >= 0; i--) {
       const fly = scoreFlies[i]!;
       fly.t += dt;
@@ -1148,16 +1267,28 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       const k = scoreFlyEase(u);
       const x = fly.x0 + (fly.x1 - fly.x0) * k;
       const y = fly.y0 + (fly.y1 - fly.y0) * k - Math.sin(Math.PI * u) * arc;
-      const s = scoreFlyScale(u);
-      fly.el.style.opacity = '1';
+      const s = scoreFlyScale(u, fly.endScale);
       fly.el.style.transform = `translate3d(${x - fly.w / 2}px,${y - fly.h / 2}px,0) scale(${s})`;
       fly.el.style.transformOrigin = 'center center';
+      const span = Math.max(0.08, 1 - fadeStart);
+      const fu = u <= fadeStart ? 0 : Math.min(1, (u - fadeStart) / span);
+      const op = (1 - fu) * (1 - fu);
+      fly.el.style.opacity = op > 0.03 ? String(op) : '0';
       if (u >= 1) {
+        if (!fly.hit) {
+          fly.hit = true;
+          onCoinLand();
+        }
         releaseFly(fly.el);
         scoreFlies.splice(i, 1);
+        if (!scoreFlies.length && coinRoll.target !== coins) {
+          setScoreTarget(coinRoll, coins);
+          paintHud();
+        }
       }
     }
-    return scoreFlies.length > 0;
+    const punching = tickIconPunch(dt);
+    return scoreFlies.length > 0 || punching;
   };
 
   const commitClear = (cells: Cell[], settle: StrokeResolve) => {
@@ -1224,7 +1355,11 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       fireHaptic('find');
       const settle = resolveStroke(path, colors, convertPreview);
       commitStroke(scoreRoll, strokeScore(path, colors, settle));
-      sim.colorCount = colorCountForScore(scoreRoll.committed);
+      const gained = strokeCoins(path, colors);
+      coins += gained;
+      if (!path.magic || gained < 1) setScoreTarget(coinRoll, coins);
+      paintHud();
+      if (path.magic) sim.colorCount = stepColorCount(sim.colorCount);
       if (settle.extraCells.length && lastLocal) {
         pendingConvert = {
           cells: path.cells.map((c) => ({ row: c.row, col: c.col })),
@@ -1565,6 +1700,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const dt = lastTs ? (ts - lastTs) / 1000 : 0;
     lastTs = ts;
     let keep = tickScoreRoll(scoreRoll, dt);
+    if (tickScoreRoll(coinRoll, dt)) keep = true;
     if (keep) paintHud();
     if (pendingConvert) {
       pendingConvert.acc += dt;
@@ -1747,6 +1883,32 @@ function mountSettings(
       <p class="tune-title">设置</p>
       <button type="button" class="tune-close" data-close aria-label="关闭">×</button>
     </div>
+    <p class="tune-section">HUD</p>
+    <label>面板高度<span data-k="hudPanelHeight">${initial.hudPanelHeight}</span>
+      <input type="range" data-k="hudPanelHeight" min="72" max="160" step="1" value="${initial.hudPanelHeight}" />
+    </label>
+    <label>边距/间距<span data-k="hudGutter">${initial.hudGutter}</span>
+      <input type="range" data-k="hudGutter" min="6" max="28" step="1" value="${initial.hudGutter}" />
+    </label>
+    <label>标题字号<span data-k="hudLabelSize">${initial.hudLabelSize}</span>
+      <input type="range" data-k="hudLabelSize" min="10" max="22" step="1" value="${initial.hudLabelSize}" />
+    </label>
+    <label>标题高低<span data-k="hudLabelY">${initial.hudLabelY}</span>
+      <input type="range" data-k="hudLabelY" min="-32" max="32" step="1" value="${initial.hudLabelY}" />
+    </label>
+    <label>分数字号<span data-k="hudScoreSize">${initial.hudScoreSize}</span>
+      <input type="range" data-k="hudScoreSize" min="22" max="64" step="1" value="${initial.hudScoreSize}" />
+    </label>
+    <label>分数高低<span data-k="hudScoreY">${initial.hudScoreY}</span>
+      <input type="range" data-k="hudScoreY" min="-32" max="32" step="1" value="${initial.hudScoreY}" />
+    </label>
+    <label>金币数字上限<span data-k="hudCoinSize">${initial.hudCoinSize}</span>
+      <input type="range" data-k="hudCoinSize" min="16" max="48" step="1" value="${initial.hudCoinSize}" />
+    </label>
+    <label>金币图标<span data-k="hudCoinIconH">${initial.hudCoinIconH}</span>
+      <input type="range" data-k="hudCoinIconH" min="24" max="72" step="1" value="${initial.hudCoinIconH}" />
+    </label>
+    <p class="tune-section">棋盘</p>
     <label>棋盘宽<span data-k="visualWidth">${initial.visualWidth}</span>
       <input type="range" data-k="visualWidth" min="260" max="390" step="1" value="${initial.visualWidth}" />
     </label>
@@ -1786,10 +1948,21 @@ function mountSettings(
   `;
   uiRoot.append(root);
 
+  const btn = document.createElement('button');
+  btn.id = 'btn-settings';
+  btn.type = 'button';
+  btn.setAttribute('aria-label', '设置');
+  btn.innerHTML =
+    '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.8a.5.5 0 0 0-.49.42l-.36 2.54c-.59.24-1.13.55-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.48a.5.5 0 0 0 .12.64L4.86 10.7c-.04.31-.06.63-.06.94s.02.63.06.94L2.83 14.16a.5.5 0 0 0-.12-.64l1.92 3.32c.14.24.42.34.68.22l2.39-.96c.5.39 1.04.7 1.63.94l.36 2.54c.05.24.25.42.49.42h3.8c.24 0 .44-.18.49.42l.36 2.54c.59-.24 1.13-.55 1.63-.94l2.39.96c.26.12.54.02.68-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>';
+  uiRoot.append(btn);
+
   const panel = root.querySelector('#tune-panel')!;
   const open = () => root.classList.add('is-open');
   const close = () => root.classList.remove('is-open');
-  uiRoot.querySelector('#btn-settings')?.addEventListener('click', open);
+  btn.addEventListener('click', () => {
+    if (root.classList.contains('is-open')) close();
+    else open();
+  });
   root.querySelectorAll('[data-close]').forEach((el) => el.addEventListener('click', close));
 
   const state = { ...initial };
@@ -1819,17 +1992,9 @@ function mountSettings(
   });
 
   panel.querySelector('[data-reset]')!.addEventListener('click', () => {
-    setVal('visualWidth', TUNE_DEFAULTS.visualWidth);
-    setVal('visualHeight', TUNE_DEFAULTS.visualHeight);
-    setVal('spacing', TUNE_DEFAULTS.spacing);
-    setVal('pieceSize', TUNE_DEFAULTS.pieceSize);
-    setVal('cellSize', TUNE_DEFAULTS.cellSize);
-    setVal('cellOpacity', TUNE_DEFAULTS.cellOpacity);
-    setVal('dropV0', TUNE_DEFAULTS.dropV0);
-    setVal('dropAccel', TUNE_DEFAULTS.dropAccel);
-    setVal('dropVMax', TUNE_DEFAULTS.dropVMax);
-    setVal('maskInset', TUNE_DEFAULTS.maskInset);
-    setVal('maskRadius', TUNE_DEFAULTS.maskRadius);
+    (Object.keys(TUNE_DEFAULTS) as (keyof Tune)[]).forEach((key) => {
+      setVal(key, TUNE_DEFAULTS[key]);
+    });
   });
 
   return root;

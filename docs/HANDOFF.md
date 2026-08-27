@@ -23,7 +23,7 @@
 
 ## 新窗口第一句（可粘贴）
 
-继续 SlideMatch。先读 `docs/SPEC.md`、`DESIGN.md`、`ITEMS.md`、`FEEDBACK.md`、`BOARD.md`、`OPERATION.md`、`DROP.md`、`HAPTICS.md` §0。阶段 A–C–E–F 已完成。翻牌走 yaw 横条；魔法是原色子 + 白板 overlay + 金币 overlay（金币上不叠 Additive 拷贝）。角标进局预铺 36，只用 opacity。震动走 `FEEL.haptic`（按下 / 过格 / 找对）；SceneDelegate 必须 `BridgeViewController()`。视觉与反馈数字只改 `src/game/design.ts` 的 `LOOK` / `FEEL`。下一刀阶段 D：路径长度 6/8/10 档视+震。点魔法 / 划金币仍可能卡，见 PERF。按钮式全盘清 / 排行榜不要做。
+继续 SlideMatch。先读 `docs/SPEC.md`、`DESIGN.md`、`ITEMS.md`、`FEEDBACK.md`、`BOARD.md`、`OPERATION.md`、`DROP.md`、`HAPTICS.md` §0。阶段 A–C–E–F 已完成。色种：开局 3，分数不解锁；用完魔法后顶补 ±1（3–5，降档约 55%）。翻牌走 yaw 横条；魔法是原色子 + 白板 overlay + 金币 overlay。路径 Additive **只叠金币 0.18**，白板不叠。HUD：左 COINS 方 130、右 SCORE 长条，边距=间距 14；设置按钮隐藏。魔法飞币打 HUD 图标：终点 ×0.55、路程 62% 起淡出、打中 punch + 数字 rolling。角标进局预铺 36，只用 opacity。震动 `FEEL.haptic`：按下 0.55/0.86，过格与回退 0.35/0.50，散消点子 0.30/0.40，有效抬手找对 pattern。SceneDelegate 必须 `BridgeViewController()`。`lockGestures` 禁网页缩放/长按放大镜；系统 Home、缘滑返回拦不掉。视觉与反馈数字只改 `src/game/design.ts` 的 `LOOK` / `HUD` / `FEEL`。下一刀阶段 D：路径长度 6/8/10 档视+震。点魔法 / 划金币仍可能卡，见 PERF。按钮式全盘清 / 排行榜不要做。
 
 ## 阶段
 
@@ -47,15 +47,16 @@ npm run cap:sync && npx cap open ios   # 打真机
 
 iOS **`com.slidematch.play` / SlideMatch**。
 
-能看到：奶油舞台、九宫框、6×6 黏土棋子、浅格、顶栏 SCORE。可划可退（路径浮起+角标、其它色变暗）；≥2 抬手缩完腾格+碎屑；达门槛路径飞入队尾出道具。邻列在掉时静止子仍可划。真机有按下/过格/找对震动。设置齿轮可调盘面与下落三条。
+能看到：奶油舞台、九宫框、6×6 黏土棋子、浅格、顶栏左 COINS 右 SCORE。可划可退（路径浮起+角标、其它色变暗）；≥2 抬手缩完腾格+碎屑；达门槛路径飞入队尾出道具。邻列在掉时静止子仍可划。真机：按下/过格/回退/散消点子/找对震动。设置按钮隐藏。
 
 ## 玩法（已拍板）
 
-- 6×6、3 色、四向可拐、≥2、仅抬手结算；滑动中不消、不生成道具  
+- 6×6、开局 3 色、四向可拐、≥2、仅抬手结算；滑动中不消、不生成道具  
+- 色种：分数不解锁。用完魔法后顶补 ±1（3–5，降档约 55%）。变色 / 普通划不改。只影响新落下的。  
 - 无落地后再自动三消  
 - 下落：`current`+`incoming`、下方空才掉、0.22 释放；运动初速/加速度/上限。静止子可划。见 DROP.md  
 - 变色子：无道具 ≥5 生成（路径飞入队尾弹出）；划入可换色；滑动 Additive 标散子；松手倒数选中后按路径长度散消。无道具 ≥10 出魔法；**用变色子连 ≥10 也出魔法**。魔法：本划全同色，抬手只消路径。路径含魔法则变色散消不触发、也不出新道具。  
-- HUD SCORE：连格 +1/格预览；抬手一次滚到取整后的累计（不要先滚未取整再跳）。
+- HUD：右 SCORE（连格 +1/格预览；抬手一次滚到取整后的累计）。左 COINS：魔法路径每格 +1，飞向 HUD 金币图标。无设置按钮。
 
 ## 操作要点（细节只信 OPERATION）
 
@@ -66,20 +67,20 @@ iOS **`com.slidematch.play` / SlideMatch**。
 ## 代码
 
 ```
-src/game/design.ts  LOOK / ART / GRID / RULES / FEEL / PIECE_DRAW
+src/game/design.ts  LOOK / ART / GRID / RULES / FEEL / HUD / PIECE_DRAW（`stepColorCount`）
 src/game/config.ts  资源、yaw 横条、warmup
 src/game/perfLog.ts 真机 [perf] 帧时（console / sessionStorage / ?debugPerf=1）
 src/game/items.ts   生成、散消、resolveStroke
-src/game/score.ts   n² × 倍率，累计滚动
+src/game/score.ts   n² × 倍率，SCORE/COINS 累计滚动
 src/game/clearFx.ts 消除碎屑
-src/game/settings.ts 调参覆盖 LOOK（下落三条）
+src/game/settings.ts 调参覆盖 LOOK + HUD（按钮隐藏；存档 v21）
 src/game/path.ts    四邻过边/进格、加/减、插值
 src/game/input.ts   第一指、cancel 续划、合批
 src/game/drop.ts    占坑 0.22、飞入一起腾格、道具格锁
 src/game/convertLook.ts 锁色 / 魔法显示
-src/game/scoreFly.ts 金币飞向 SCORE
+src/game/scoreFly.ts 金币飞向 HUD 金币图标
 src/game/pathBadge.ts 路径角标运动
-src/game/mount.ts   选中、角标、合成飞入、白板/金币 overlay、脏格子 rAF
+src/game/mount.ts   选中、角标、合成飞入、白板/金币 overlay、脏格子 rAF；魔法抬手写 `sim.colorCount`
 src/game/board.ts   cellFromLocal / 初盘连通
 ```
 
@@ -99,4 +100,4 @@ src/game/board.ts   cellFromLocal / 初盘连通
 
 ## 未定点
 
-排行榜。对角 X 交叉阶段 B 允许。心 / 星：累计 5000 / 15000 顶补解锁。旧点心已删。
+排行榜。对角 X 交叉阶段 B 允许。心 / 星：用完魔法后顶补色种 ±1（3–5，降档约 55%）。旧点心已删。

@@ -49,7 +49,7 @@
 
 框相对舞台水平居中，垂直中心再下 **13**。
 
-设置从 HUD 齿轮打开，叠在 `#settings-root`（`#ui-root` 内，禁止 `position: fixed`）。
+调参面板 `#settings-root` 在 `#ui-root` 内（禁止 `position: fixed`），左下弹出。局内 **设置按钮隐藏**。可调盘面/下落，以及 HUD：高度、边距、标题/分数字号与高低、金币数字上限、金币图标大小。金币图标 XY 钉死不进设置。存档 `slidematch.tune.v21`。
 
 ## 素材（`src/assets/`，PNG 原图，勿再压 JPEG）
 
@@ -69,9 +69,10 @@
 | `piece-magic.png` | 魔法子（金币） | 360×430 透明底 |
 | `coin.png` | 魔法滑动叠在白板上的金币正面 | 360×430 透明底 |
 | `fx-preview/yaw-2d/magic_bai/` | 魔法滑动全盘白板 yaw（00–06、19–23） | 360×430；翻完用 00 当静图 |
+| `hud-panel.png` | HUD 分数 / 金币底板，CSS `border-image` 九宫 | 200×200；slice 52 |
 | `fonts/Inter-800.woff2` | SCORE / 设置标题 | ExtraBold |
 
-盘面三色：水滴 / 叶 / 太阳。道具：变色 / 魔法。  
+盘面开局三色：水滴 / 叶 / 太阳。顶补可到心 / 星（用完魔法后 ±1 色种，见 ITEMS）。道具：变色 / 魔法。  
 `bg-table.png` 不再使用（舞台纯色）。  
 旧点心剪影（`piece-biscuit` / `piece-donut` / `piece-jelly` / `piece-macaron`）已删，不要再加回。
 
@@ -79,12 +80,19 @@
 
 ## HUD
 
+数字真源：`src/game/design.ts` 的 `HUD`（布局）+ `FEEL.convert.scoreFly*`（飞币）。
+
 | 项 | 值 |
 |----|-----|
-| 标题 | `SCORE`，Inter 800，15px，字距 0.16em，`#c47ee0` |
-| 数字 | Inter 800，46px，`#8f5a3c` |
-| 位置 | 顶栏水平居中；右侧设置按钮 |
-| 语义 | 累计分；连格 +1 预览，抬手一次滚到取整后的累计（见 DESIGN） |
+| 标题 | `COINS` / `SCORE`，Inter 800，**20px**，字距 0.14em，`#c47ee0`；高低 `labelY` **25** |
+| SCORE 数字 | Inter 800，**45px**，`#8f5a3c`；高低 `scoreY` **15** |
+| COINS 数字 | 上限 **36px**，同色；在图标右侧槽里居中；位数多了自适应缩小，不画出底板、不压图标 |
+| 布局 | 左方 **130×130**、右长条同高拉满；边距 = 两栏间距 **14** |
+| 底板 | `hud-panel.png` 九宫一层（`::before`）；投影 `drop-shadow(0 2px 2px rgba(140,100,80,0.32))` 贴 Alpha。禁止再加圆角 `box-shadow`（会看成两层） |
+| 金币图标 | 高 **45**、宽按 360×430 ≈ **38**。相对「图标+一位数字」居中组再微移 `coinIconX` **-8**、`coinIconY` **15**。位置钉死 |
+| 本局金币 | 仅魔法有效抬手，路径每格 +1。飞币打中图标才 rolling；逻辑累计抬手时已记 |
+| 飞币 | 终点对准 HUD 图标中心，大小 = 图标 × **0.55**。路程 **62%** 起淡出，到达时已透明。每枚打中：图标 punch 1.22 / 0.14s，数字 ease-out 跟上 |
+| 设置 | 按钮隐藏；面板代码仍在 |
 
 ## 大盘投影
 
@@ -97,8 +105,8 @@
   canvas                       WebGPU 透明，pointer-events:none
   #ui-root                     pointer-events:none
     #hud                       仅此项 safe padding
-      .hud-score-wrap          SCORE
-      #btn-settings
+      .hud-coins.hud-panel     COINS（方）
+      .hud-score-wrap.hud-panel SCORE（长条）
     #game-board                pointer-events:auto
       .board-pad               九宫框
       .board-cells             逻辑 6×6 浅格
