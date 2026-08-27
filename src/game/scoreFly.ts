@@ -22,7 +22,22 @@ export type ScoreFly = {
   endScale: number;
   hit: boolean;
   fade: number;
+  credit: number;
 };
+
+/** 均匀抽 keep 份路径格，至少 1。 */
+export function pickScoreFlyCells(cells: Cell[], keep = FEEL.convert.scoreFlyKeep): Cell[] {
+  const ordered = cells.slice().sort((a, b) => a.row - b.row || a.col - b.col);
+  const n = ordered.length;
+  if (n <= 1) return ordered;
+  const k = Math.max(1, Math.round(n * keep));
+  if (k >= n) return ordered;
+  const out: Cell[] = [];
+  for (let i = 0; i < k; i++) {
+    out.push(ordered[Math.round((i * (n - 1)) / (k - 1))]!);
+  }
+  return out;
+}
 
 /** 上到下；下一行必晚于上一行所有列。同行只差 col × colStagger。 */
 export function magicClearDelay(cells: Cell[]): (cell: Cell) => number {

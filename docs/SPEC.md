@@ -35,7 +35,7 @@
 | 路径角标 | 入队序号；普通直径 18、队尾 30（DOM 盒固定 30，视觉 `scale`）；进局预铺 36，不用只 `opacity: 0` |
 | 震动 | Core Haptics I/S（`FEEL.haptic`）。按下 0.55/0.86；过格/回退 0.35/0.50；散消点子 0.30/0.40；有效抬手找对 pattern。取消 / &lt;2 **不震**。SceneDelegate 必须 `BridgeViewController()` |
 | 反馈 | 选中浮起；消子缩完才腾格+碎屑；达门槛则路径飞入队尾弹出道具。见 [FEEDBACK.md](./FEEDBACK.md) |
-| HUD | 左 **COINS** 方板 + 右 **SCORE** 长条（边距=间距 14）。SCORE：连格预览、抬手 n²×倍率滚动。COINS：仅魔法路径每格 +1；飞币打中才 rolling。设置左下。细则 [BOARD.md](./BOARD.md) |
+| HUD | 左 **COINS** 方 130 + 右 **SCORE** 长条（边距=间距 14）。COINS：胶囊条 + 图标 + 数字槽。仅魔法路径每格 +1；飞币约 2/3 条，落地 rolling。设置左下。细则 [BOARD.md](./BOARD.md) |
 | iOS | `com.slidematch.play` / SlideMatch |
 | 下一刀 | 阶段 D：长度 6/8/10 档视+震。按钮式全盘清 / 排行榜不要做 |
 

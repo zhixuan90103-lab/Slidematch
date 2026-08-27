@@ -129,6 +129,8 @@ export const FEEL = {
     rippleStepSec: 0.05,
     /** 魔法消除：金币飞向 HUD 金币图标的时长 / 错开 / 弧高。 */
     scoreFlySec: 0.48,
+    /** 飞币条数相对路径格，少 1/3 减轻卡顿。本局金币数仍按路径格。 */
+    scoreFlyKeep: 2 / 3,
     /** 飞向图标：同一飞行速度；行与行错开，同行内列只差一点点。 */
     scoreFlyRowStagger: 0.07,
     scoreFlyColStagger: 0.01,

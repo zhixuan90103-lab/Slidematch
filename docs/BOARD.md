@@ -49,7 +49,7 @@
 
 框相对舞台水平居中，垂直中心再下 **13**。
 
-调参面板 `#settings-root` 在 `#ui-root` 内（禁止 `position: fixed`），左下齿轮打开。可调盘面/下落，以及 HUD：高度、边距、标题/分数、**金币图标大小与 XY、金币数字 XY**。胶囊条高度 `HUD.coinBarH` 固定，不跟金币图标走。存档 `slidematch.tune.v22`。
+调参面板 `#settings-root` 在 `#ui-root` 内（禁止 `position: fixed`），左下齿轮打开。可调盘面/下落，以及 HUD：高度、边距、标题/分数高低与字号、金币图标大小与 XY、金币数字上限/宽度/XY、金币条高低。胶囊条高度 `HUD.coinBarH` **47** 固定，不跟图标大小走。存档 `slidematch.tune.v26`。打开设置时 COINS 数字槽画紫框。
 
 ## 素材（`src/assets/`，PNG 原图，勿再压 JPEG）
 
@@ -92,9 +92,9 @@
 | 底板 | `hud-panel.png` 九宫一层（`::before`）；投影 `drop-shadow(0 2px 2px rgba(140,100,80,0.32))` 贴 Alpha。禁止再加圆角 `box-shadow`（会看成两层） |
 | 金币图标 | 高 **50**、宽按 360×430 ≈ **42**。`coinIconX` **-14**、`coinIconY` **15** |
 | 金币条 | `hud-coin-bar.png` 横向三分，高 **47** 固定；高低 `coinBarY`（设置「金币条高低」），不跟图标走 |
-| 本局金币 | 仅魔法有效抬手，路径每格 +1。飞币打中图标才 rolling；逻辑累计抬手时已记 |
-| 飞币 | 终点对准 HUD 图标中心，大小 = 图标 × **0.55**。路程 **62%** 起淡出，到达时已透明。每枚打中：图标 punch 1.22 / 0.14s，数字 ease-out 跟上 |
-| 设置 | 左下齿轮；打开时 COINS 数字槽画紫框方便对位 |
+| 本局金币 | 仅魔法有效抬手，路径每格 +1。逻辑累计抬手时记满；屏幕数字跟飞币落地 rolling |
+| 飞币 | 条数 ≈ 路径格 × **2/3**（均匀抽格）。终点对准 HUD 图标中心，大小 = 图标 × **0.55**。路程 **62%** 起淡出，到达时已透明。每枚打中：图标 punch 1.22 / 0.14s；credit 均分，少飞的记在剩下的飞币上 |
+| 设置 | 左下齿轮；打开时数字槽画紫框 |
 
 ## 大盘投影
 
@@ -108,6 +108,11 @@
   #ui-root                     pointer-events:none
     #hud                       仅此项 safe padding
       .hud-coins.hud-panel     COINS（方）
+        .hud-label             COINS
+        .hud-coins-row
+          .hud-coins-bar       胶囊底（三分拉长）
+          .hud-coins-icon      金币
+          #hud-coins           数字槽
       .hud-score-wrap.hud-panel SCORE（长条）
     #game-board                pointer-events:auto
       .board-pad               九宫框

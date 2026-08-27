@@ -32,7 +32,7 @@ src/game/settings.ts   调参与 layout
 src/game/board.ts      点中、初盘保证 ≥ PATH_MIN 连通
 src/game/mount.ts      DOM、选中、角标、合成飞入、魔法三层、脏格子 rAF
 src/game/convertLook.ts 换锁色 / 魔法白板显示
-src/game/scoreFly.ts   魔法金币飞向 HUD 图标
+src/game/scoreFly.ts   魔法金币飞向 HUD 图标（约 2/3 条）
 src/assets/            见 BOARD.md
 ```
 

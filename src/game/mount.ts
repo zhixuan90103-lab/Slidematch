@@ -27,7 +27,6 @@ import {
   CONVERT_RECOLOR_IN,
   CONVERT_RECOLOR_OUT,
   COIN_LOOK,
-  COIN_PER_MAGIC_CELL,
   FRAME_SLICE,
   HUD,
   PATH_MIN,
@@ -69,7 +68,7 @@ import {
   recolorWant,
   type RecolorFx,
 } from './convertLook';
-import { magicClearDelay, scoreFlyEase, scoreFlyScale, type ScoreFly } from './scoreFly';
+import { magicClearDelay, pickScoreFlyCells, scoreFlyEase, scoreFlyScale, type ScoreFly } from './scoreFly';
 import { badgeBoxPx, badgeFontPx, badgeTargetPx, tickBadgeMotion, type BadgeMotion } from './pathBadge';
 import { createPerfLog, type PerfScene } from './perfLog';
 import {
@@ -1193,9 +1192,18 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       w > 0 && dest.w > 0
         ? (dest.w / w) * FEEL.convert.scoreFlyEndMul
         : FEEL.convert.scoreFlyEndScale;
-    const delayOf = magicClearDelay(cells);
-    const ordered = cells.slice().sort((a, b) => a.row - b.row || a.col - b.col);
-    ordered.forEach((cell) => {
+    const picked = pickScoreFlyCells(cells);
+    const delayOf = magicClearDelay(picked);
+    const credits: number[] = [];
+    const toShow = Math.max(0, coins - coinRoll.target);
+    const m = picked.length;
+    const base = m > 0 ? Math.floor(toShow / m) : 0;
+    let rem = m > 0 ? toShow - base * m : 0;
+    for (let i = 0; i < m; i++) {
+      credits.push(base + (rem > 0 ? 1 : 0));
+      if (rem > 0) rem -= 1;
+    }
+    picked.forEach((cell, i) => {
       const p = sim.slots[cell.row]![cell.col]!.current;
       if (!p || p.state !== 'stable') return;
       const el = acquireFly();
@@ -1215,6 +1223,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         endScale,
         hit: false,
         fade: 0,
+        credit: credits[i] ?? 1,
       });
     });
     if (scoreFlies.length === before) setScoreTarget(coinRoll, coins);
@@ -1225,8 +1234,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     hudBar.style.setProperty('--hud-coin-icon-punch', String(FEEL.convert.coinIconPunch));
   };
 
-  const onCoinLand = () => {
-    setScoreTarget(coinRoll, Math.min(coins, coinRoll.target + COIN_PER_MAGIC_CELL));
+  const onCoinLand = (credit: number) => {
+    setScoreTarget(coinRoll, Math.min(coins, coinRoll.target + Math.max(1, credit)));
     punchCoinIcon();
     paintHud();
     ensureLoop();
@@ -1281,7 +1290,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       if (u >= 1) {
         if (!fly.hit) {
           fly.hit = true;
-          onCoinLand();
+          onCoinLand(fly.credit);
         }
         releaseFly(fly.el);
         scoreFlies.splice(i, 1);
