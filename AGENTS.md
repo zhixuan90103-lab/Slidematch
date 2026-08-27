@@ -72,7 +72,7 @@
 4. **布局坐标 390×844**；禁止 `renderer.setSize(window.innerWidth,…)`  
 5. **UI 只挂 `#ui-root`**；禁止玩法 UI `position: fixed`  
 6. **Pad 只改外层视口**，不改 `DESIGN_*`  
-7. 改 Swift 改 `plugins/native-haptics/` 再 `ios:bootstrap`；不要用 JS `prepare()` 判断是否接上  
+7. 改 Swift 改 `plugins/native-haptics/` 再 `ios:bootstrap`；不要用 JS `prepare()` 判断是否接上。**SceneDelegate 必须 `BridgeViewController()`**，不能是 `CAPBridgeViewController()`  
 8. **无 WebGPU 则明确失败**，不静默 WebGL  
 9. 盘内点中用浅格 **DOM rect**；追加路径见 [OPERATION.md](./docs/OPERATION.md)（尾格四邻过边/进格，禁止全盘最近格）  
 10. 视觉/规则/下落/反馈默认写在 `src/game/design.ts`（`LOOK` / `RULES` / `FEEL` / `PIECE_DRAW`），不要在 `mount.ts` 里另写一套数字  

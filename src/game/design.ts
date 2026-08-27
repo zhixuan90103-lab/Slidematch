@@ -80,6 +80,9 @@ export const FEEL = {
     pressS: 0.86,
     tickI: 0.35,
     tickS: 0.5,
+    /** 变色散消每点一颗散子。 */
+    markI: 0.3,
+    markS: 0.4,
     findI: 0.5,
     findS: 0.3,
     findGap: 0.05,

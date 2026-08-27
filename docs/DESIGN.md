@@ -20,7 +20,7 @@
 | 棋子清晰 | 1× 合成层发糊 | 位图 ×DPR（上限 3）再 `scale` 回去 |
 | 浅格 | 杏格 / 可隐藏 | 圆角薰衣草 `cell.png`（同 360×430），默认透明度 15 |
 | 大盘框 | 巧克力浅杏 | 奶油薰衣草九宫 `board-frame.png` |
-| 盘面默认 | 9×9 / 格 38 | 框 380×450，格 60，子 56，下落 150 |
+| 盘面默认 | 9×9 / 格 38 | 框 380×450，格 60，子 56；下落初速 600 / 加速度 1400 / 上限 1600 |
 | HUD | Moves | 居中 **SCORE**（Inter ExtraBold） |
 | 包名 | `com.slidematch.phaseb` | **`com.slidematch.play` / SlideMatch** |
 

@@ -1066,6 +1066,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
 
   const pickConvertExtra = (cell: Cell) => {
     extraKeys.add(`${cell.row},${cell.col}`);
+    fireHaptic('mark');
   };
 
   const lookColorNow = (piece: Piece): number => {
@@ -1180,7 +1181,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     ensureLoop();
   };
 
-  const fireHaptic = (kind: 'press' | 'tick' | 'find') => {
+  const fireHaptic = (kind: 'press' | 'tick' | 'mark' | 'find') => {
     const h = FEEL.haptic;
     if (kind === 'find') {
       const gap = h.findGap;
@@ -1213,6 +1214,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       return;
     }
     if (kind === 'press') void haptics.playTransient(h.pressI, h.pressS);
+    else if (kind === 'mark') void haptics.playTransient(h.markI, h.markS);
     else void haptics.playTransient(h.tickI, h.tickS);
   };
 
@@ -1311,7 +1313,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       return;
     }
     const afterLen = path?.cells.length ?? 0;
-    if (afterLen > beforeLen) fireHaptic('tick');
+    if (afterLen !== beforeLen && afterLen > 0) fireHaptic('tick');
     paintPath(path, false);
     const hover = cellFromLocal(loc.x, loc.y, layout);
     if (hover) {

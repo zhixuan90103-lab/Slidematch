@@ -24,12 +24,12 @@
 - 棋子 PNG 是 **实心黏土圆角牌 + 图标**，只有四角全透明，不是镂空剪影。
 - 静图：`piece-*.png` / `coin.png`。翻牌 yaw：`src/assets/fx-preview/yaw-2d/<套>/yaw_strip.png`（**13 格**：00–06+19–23 再加末格静图）。运行时只 import 横条。
 - 棋子是 `div.board-piece` + `background-position` 裁帧，不是每帧换 `<img src>`。`overflow: hidden` 裁到一格。
-- 魔法另两层 overlay（白板 `magic_bai`、金币 `coin`），36 张预建；非魔法 `opacity: 0`。
+- 魔法另两层 overlay（白板 `magic_bai`、金币 `coin`），与路径角标均进局预铺 36；不用 `opacity: 0`，不要拆层。
 - 重打横条：`python3 scripts/pack-yaw-atlas.py`（要 ffmpeg）。
 
 - **禁止** CSS `border-radius` 裁图（圆角只信素材 Alpha）。
 - **禁止** 棋子 `box-shadow`（矩形影会垫在透明角下面）。
-- 投影：`filter: drop-shadow(0 3px 1px rgba(90, 55, 80, 0.42))`，下投影、小范围，贴 Alpha。
+- 投影：`filter: drop-shadow(0 3px 1px rgba(90, 55, 80, 0.42))`，下投影、小范围，贴 Alpha。其它色变暗时关投影，松手 100ms 淡入。
 - 清晰：合成层位图按 `devicePixelRatio` 放大（上限 3）再 `scale(1/dpr)` 回布局大小；落地挤压仍绕底边中心。
 - Mask 只切画出大盘的顶补，不切单颗素材。
 

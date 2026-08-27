@@ -43,7 +43,7 @@ index.html
 
 ## iOS
 
-震动插件不会随 `cap:sync` 自动注册。第一次 / 改插件必须 `ios:bootstrap`。见 [HAPTICS.md §0](./HAPTICS.md)。
+震动插件不会随 `cap:sync` 自动注册。第一次 / 改插件必须 `ios:bootstrap`。SceneDelegate 必须 `BridgeViewController()`。玩法数字 `FEEL.haptic`。见 [HAPTICS.md §0](./HAPTICS.md)。
 
 `?preview=0|1` · `?debugFit=1` · `?debugPerf=1`（帧时日志叠层，见 [PERF.md](./PERF.md)）
 
@@ -55,7 +55,8 @@ index.html
 | 选中/消除/变色/合成反馈 | [FEEDBACK.md](./FEEDBACK.md) · `FEEL` · `clearFx.ts` · `mount.ts` · `convertLook.ts` · `scoreFly.ts` |
 | yaw 横条 | `src/assets/fx-preview/yaw-2d/*/yaw_strip.png` · `scripts/pack-yaw-atlas.py` · `config.ts` |
 | 真机帧时 | `perfLog.ts` · `?debugPerf=1` · [PERF.md](./PERF.md) |
-| 路径角标 | `pathBadge.ts` · `FEEL.select.badge*` |
+| 路径角标 | `pathBadge.ts` · `FEEL.select.badge*`（进局 36 池，opacity 隐藏） |
+| 震动玩法 | `FEEL.haptic` · `haptics.playTransient` / `playPattern` · [HAPTICS.md](./HAPTICS.md) §0.8 |
 | 调参覆盖 | `src/game/settings.ts`；HUD 齿轮 → `#settings-root` |
 | 素材 | `src/assets/` · [BOARD.md](./BOARD.md) |
 | 道具生成/结算 | `src/game/items.ts` · [ITEMS.md](./ITEMS.md) |

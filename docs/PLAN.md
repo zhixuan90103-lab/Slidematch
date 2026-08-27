@@ -21,7 +21,7 @@
 ## 代码
 
 ```
-src/game/design.ts     LOOK / ART / GRID / RULES / FEEL / PIECE_DRAW
+src/game/design.ts     LOOK / ART / GRID / RULES / FEEL（含 haptic） / PIECE_DRAW
 src/game/config.ts     行列、框切片、yaw 横条、warmup
 src/game/perfLog.ts    真机帧时日志
 src/game/pathBadge.ts  路径角标出现/队尾缩放/消失
@@ -30,13 +30,13 @@ src/game/score.ts      累计分 / n² / 道具倍率
 src/game/clearFx.ts    消除碎屑
 src/game/settings.ts   调参与 layout
 src/game/board.ts      点中、初盘保证 ≥ PATH_MIN 连通
-src/game/mount.ts      DOM、选中、变色气泡、合成飞入、魔法两层
+src/game/mount.ts      DOM、选中、角标、合成飞入、魔法三层、脏格子 rAF
 src/game/convertLook.ts 换锁色 / 魔法白板显示
 src/game/scoreFly.ts   魔法金币飞向 SCORE
 src/assets/            见 BOARD.md
 ```
 
-阶段 B：`path.ts` + `input.ts`。阶段 C：`drop.ts` + `mount.ts` + `clearFx.ts`。阶段 E：`items.ts` + FEEDBACK。阶段 F：`score.ts`。下一刀阶段 D：6/8/10 档视+震。
+阶段 B：`path.ts` + `input.ts`。阶段 C：`drop.ts` + `mount.ts` + `clearFx.ts`。阶段 E：`items.ts` + FEEDBACK。阶段 F：`score.ts`。震动：`FEEL.haptic` + `haptics.ts`。下一刀阶段 D：6/8/10 档视+震。
 
 ## 禁止
 

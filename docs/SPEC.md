@@ -28,10 +28,12 @@
 | 盘面 `LOOK` | 框 380×450，间距 0，格宽 **60**，子宽 **56**，浅格透明度 **15**，Mask 内缩 7 / 圆角 5 |
 | 下落 | 初速 **600** px/s，加速度 **1400** px/s²，上限 **1600** px/s；占坑 0.22；设置可改这三条 |
 | 棋子 | 360×430 RGBA **实心黏土牌**（仅四角透明）；禁止 CSS 圆角裁切与矩形 `box-shadow` |
-| 棋子投影 | `drop-shadow(0 3px 1px)` 下投影，贴 Alpha；位图 ×DPR（上限 3） |
+| 棋子投影 | `drop-shadow(0 3px 1px)` 下投影，贴 Alpha；位图 ×DPR（上限 3）。其它色变暗时关投影，松手 **100ms** 淡入 |
 | 道具 | 无道具 ≥5 出变色、≥10 出魔法；路上只有变色且 ≥10 也出魔法；路上有魔法则不出。细则 [ITEMS.md](./ITEMS.md) |
 | 变色子 | `piece-convert.png`；划过可换色；Additive 标散子；松手角标从后往前逐个消失并点散子。细则 [ITEMS.md](./ITEMS.md) · [FEEDBACK.md](./FEEDBACK.md) |
-| 魔法子 | `piece-magic.png`；本划全同色。原色子不换白板横条；白板 + 金币两层 overlay。Additive：白板 0.05 / 金币 0.18。抬手只消路径并飞金币；划满盘 = 清屏 |
+| 魔法子 | `piece-magic.png`；本划全同色。三层：原色底板 + 白板 overlay + 金币 overlay。原色不换白板横条。路径 Additive 不叠在金币上。抬手只消路径并飞金币；划满盘 = 清屏 |
+| 路径角标 | 入队序号；普通直径 18、队尾 30（DOM 盒固定 30，视觉 `scale`）；进局预铺 36，不用只 `opacity: 0` |
+| 震动 | Core Haptics I/S（`FEEL.haptic`）。按下 0.55/0.86；过格/回退 0.35/0.50；散消点子 0.30/0.40；有效抬手找对 pattern。取消 / &lt;2 **不震**。SceneDelegate 必须 `BridgeViewController()` |
 | 反馈 | 选中浮起；消子缩完才腾格+碎屑；达门槛则路径飞入队尾弹出道具。见 [FEEDBACK.md](./FEEDBACK.md) |
 | HUD | 居中 **SCORE**：连格 +1/格预览；抬手滚到「n²×倍率后个位四舍五入」的累计 |
 | iOS | `com.slidematch.play` / SlideMatch |

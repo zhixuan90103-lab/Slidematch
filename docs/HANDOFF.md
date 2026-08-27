@@ -18,11 +18,12 @@
 5. `docs/BOARD.md` — 盘面 / 棋子绘制  
 6. `docs/OPERATION.md` — 滑动手感（不要改回「谁近加谁」）  
 7. `docs/DROP.md` — 占坑 / 0.22 / 腾格时机  
-8. `src/game/design.ts` — `LOOK` / `RULES` / `FEEL` / `PIECE_DRAW`  
+8. `docs/HAPTICS.md` — 接入 §0；玩法 I/S §0.8  
+9. `src/game/design.ts` — `LOOK` / `RULES` / `FEEL` / `PIECE_DRAW`  
 
 ## 新窗口第一句（可粘贴）
 
-继续 SlideMatch。先读 `docs/SPEC.md`、`DESIGN.md`、`ITEMS.md`、`FEEDBACK.md`、`BOARD.md`、`OPERATION.md`、`DROP.md`。阶段 A–C–E–F 已完成。翻牌走 yaw 横条；魔法是原色子 + 白板 overlay + 金币 overlay。视觉与反馈数字只改 `src/game/design.ts` 的 `LOOK` / `FEEL`。下一刀阶段 D：路径长度 6/8/10 档视+震。第一次点魔法 / 翻回仍可能卡，见 PERF。按钮式全盘清 / 排行榜不要做。
+继续 SlideMatch。先读 `docs/SPEC.md`、`DESIGN.md`、`ITEMS.md`、`FEEDBACK.md`、`BOARD.md`、`OPERATION.md`、`DROP.md`、`HAPTICS.md` §0。阶段 A–C–E–F 已完成。翻牌走 yaw 横条；魔法是原色子 + 白板 overlay + 金币 overlay（金币上不叠 Additive 拷贝）。角标进局预铺 36，只用 opacity。震动走 `FEEL.haptic`（按下 / 过格 / 找对）；SceneDelegate 必须 `BridgeViewController()`。视觉与反馈数字只改 `src/game/design.ts` 的 `LOOK` / `FEEL`。下一刀阶段 D：路径长度 6/8/10 档视+震。点魔法 / 划金币仍可能卡，见 PERF。按钮式全盘清 / 排行榜不要做。
 
 ## 阶段
 
@@ -46,7 +47,7 @@ npm run cap:sync && npx cap open ios   # 打真机
 
 iOS **`com.slidematch.play` / SlideMatch**。
 
-能看到：奶油舞台、九宫框、6×6 黏土棋子、浅格、顶栏 SCORE。可划可退（路径浮起、其它色变暗）；≥2 抬手缩完腾格+碎屑；达门槛路径飞入队尾出道具。邻列在掉时静止子仍可划。设置齿轮可调盘面与下落三条。
+能看到：奶油舞台、九宫框、6×6 黏土棋子、浅格、顶栏 SCORE。可划可退（路径浮起+角标、其它色变暗）；≥2 抬手缩完腾格+碎屑；达门槛路径飞入队尾出道具。邻列在掉时静止子仍可划。真机有按下/过格/找对震动。设置齿轮可调盘面与下落三条。
 
 ## 玩法（已拍板）
 
@@ -78,15 +79,17 @@ src/game/drop.ts    占坑 0.22、飞入一起腾格、道具格锁
 src/game/convertLook.ts 锁色 / 魔法显示
 src/game/scoreFly.ts 金币飞向 SCORE
 src/game/pathBadge.ts 路径角标运动
-src/game/mount.ts   选中、气泡、合成飞入、白板/金币 overlay、rAF
+src/game/mount.ts   选中、角标、合成飞入、白板/金币 overlay、脏格子 rAF
 src/game/board.ts   cellFromLocal / 初盘连通
 ```
 
 下落：占坑 0.22、软间距 0.85；运动设置三条：初速 600、加速度 1400、上限 1600。落地压扁仍在。
 
+震动：`FEEL.haptic`；`void haptics.playTransient` / `playPattern`。SceneDelegate **禁止** `CAPBridgeViewController()`。
+
 ## 硬性
 
-`base: './'` · UI 只挂 `#ui-root` · 禁止 `position: fixed` · 禁止 `setSize(innerWidth)` · 无 WebGPU 明示失败 · 改 Swift 要 `ios:bootstrap`。
+`base: './'` · UI 只挂 `#ui-root` · 禁止 `position: fixed` · 禁止 `setSize(innerWidth)` · 无 WebGPU 明示失败 · 改 Swift 要 `ios:bootstrap` · 震动入口 `BridgeViewController()`。
 
 ## 对照
 

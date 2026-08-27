@@ -128,7 +128,7 @@ void haptics.stopContinuous();
 同时成立才算「接上」，不要用准备按钮：
 
 - 控制台 `plugin: true` + `AdvancedHapticsPlugin registered`
-- 真机点 **impact** 有一下、点 **transient** 有一下
+- 真机点中棋子起划有一下、过格有一下（`playTransient`）
 - 杀进程再开仍然能震（说明是 `load()` 起的引擎，不是某次侥幸 prepare）
 
 ## 0.8 玩法现行（复刻 SlideToWord）
@@ -138,7 +138,8 @@ void haptics.stopContinuous();
 | 事件 | 怎么震 |
 |------|--------|
 | 按下（命中起划） | 瞬态 I **0.55** S **0.86** |
-| 过格（路径变长） | 瞬态 I **0.35** S **0.50** |
+| 过格 / 回退 | 瞬态 I **0.35** S **0.50** |
+| 变色散消点一颗 | 瞬态 I **0.30** S **0.40** |
 | 有效抬手（≥2） | 瞬态 0.50/0.30 → 隔 50ms → 持续 100ms 0.40/0.19，强度收到 0 |
 | 取消 / &lt;2 / `pointercancel` | **不震** |
 
