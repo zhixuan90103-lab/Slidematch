@@ -19,7 +19,7 @@ Slidematch/
 │   ├── game/               # design config settings board mount path drop
 │   ├── assets/             # 框 / 浅格 / 黏土牌 PNG / Inter
 │   ├── adapt/              # lockGestures：禁网页缩放/长按放大镜
-│   ├── audio/noteSfx.ts    # 按下 / 过格 / 散消 / 找对（WebAudio）
+│   ├── audio/noteSfx.ts    # gameSfx：按下 / 过格 / 魔法 / 消除
 │   └── utils/haptics.ts
 ├── plugins/native-haptics/
 └── scripts/bootstrap-ios.mjs
@@ -103,7 +103,7 @@ Swift **没有** `prepare`；引擎在 `load()` 启动。不要用 JS `prepare()
 
 ## 7b. Audio
 
-过格音已接：`src/audio/noteSfx.ts`（WebAudio）。与 `fireHaptic` 并列。原生 PlayerNode 池仍是长期目标，见 [AUDIO.md](./AUDIO.md)。热路径禁止 `new Audio()` / 每发一次桥。
+现行：`gameSfx`（`noteSfx.ts`，WebAudio 拇指琴）。`input` pointerdown 先 `unlock`。产品事件见 [AUDIO.md](./AUDIO.md)。原生 PlayerNode 池仍是长期目标。热路径禁止 `new Audio()` / 每发一次桥。
 
 ## 8. iOS 工作流
 

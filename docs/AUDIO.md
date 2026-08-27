@@ -1,49 +1,51 @@
-# 音效方案
+# 音效
 
-配套：[AGENTS.md](../AGENTS.md) · [ENGINEERING.md](./ENGINEERING.md)
+配套：[AGENTS.md](../AGENTS.md) · [FEEDBACK.md](./FEEDBACK.md) · [HAPTICS.md](./HAPTICS.md)  
+真源：`src/audio/noteSfx.ts` 的 `gameSfx`。冲突时本文赢玩法层注释。
 
-> **采用音效3 拇指琴。** 玩法 API：`gameSfx`（`src/audio/noteSfx.ts`）。  
-> 下文是产品需求 + 已修 BUG，再往后是原生池长期规范。
+> **采用音效3 拇指琴**（`public/sfx/notes/kalimba.wav`）。WebAudio；热路径禁止 `new Audio()`。原生池见文末长期规范。
 
-## 产品需求（现行）
+## 接线
 
-| 事件 | `gameSfx` | 怎么响 | 不响 |
-|------|-----------|--------|------|
-| 按下普通子 | `press(0)` | 音阶第 1 音 | 未点中 stable |
-| 过格 / 回退 | `tick(n)` | 低两度的大调 1–14，之后约 100 音分 | 长度没变 |
-| 散消点子 | `mark(n)` | 同音阶 | — |
-| 点中/划入魔法（全盘翻） | `magicEnter()` | 四音、偏低、小声，只一次 | — |
-| 魔法继续过格 | `coin()` | 短五度 | 55ms cooldown |
-| 消除开始缩子 | `clear()` | C–E–G，间隔约 70ms | 取消 / &lt;2 |
-| 取消 / 第二指 | — | — | 不响、不震 |
+```
+pointerdown → input.unlockNoteSfx()     同手势 resume
+mountBoard  → gameSfx.preload()
+fireHaptic  → press / tick / mark / coin / magicEnter
+commitClear → gameSfx.clear()
+取消 / <2  → 不调用
+```
 
-包：`'1'` 钢片琴 · `'2'` 木琴 C5 · `'3'` **采用** 拇指琴。`setSfxPack`。
+未命中 stable、路径长度不变、取消、第二指中断：**不响、不震**。
 
-## 已修 BUG
+## 事件（现行）
 
-| 现象 | 原因 | 设计 |
-|------|------|------|
-| 点子有时不立刻出声、像卡住 | `AudioContext` 在 preload 时创建，一直 `suspended`；第一次播放和 `resume()` 不同栈，或 resume 未完成就 `start()` | `pointerdown` **先** `unlock()`（`input.ts`），同手势里 `resume()`；未 running 则排队，resume 后再播，不丢音 |
-| 第一次划静音 | 样本还在 fetch/decode，`ensureTone` 失败就 return | 进局 `preload()`；未就绪则 load 完再播该次事件 |
-| 指数包络从 0 开始 | `exponentialRamp` 非法，部分浏览器卡图 | 从 `0.0001` 起 |
+| 事件 | API | 声音 |
+|------|-----|------|
+| 按下普通子 | `press(0)` | 音阶第 1 音（相对基准 C **低两度**，唱名 **A**） |
+| 过格 / 回退 | `tick(n)` | 大调一格一音，**1–14**；15–36 钉在第 14 音上再抬约 100 音分 |
+| 散消点子 | `mark(n)` | 同音阶 |
+| 点中/划入魔法（全盘翻） | `magicEnter()` | 偏低四连 C–E–G–A，小声，只一次 |
+| 魔法继续过格 | `coin()` | 短五度（55ms cooldown） |
+| 消除（开始缩子） | `clear()` | D–F–A，第三音更弱，间隔约 70ms |
 
-## 音效包（同一套规则）
+## 包
 
-| 事件 | 怎么响 |
-|------|--------|
-| 普通过格 | 大调 1–14 格（两段八度），15–36 只再抬约 100 音分 |
-| 点中/划入魔法（全盘翻） | 拇指琴四音，约 180ms，只响一次 |
-| 魔法过格 | 同一音色短五度 |
-| 消除 | 与点魔法同音区四连（C–E–G–A），略响、间隔约 70ms |
-| 取消 / &lt;2 | 不响 |
+| id | 名称 | 样本 | 状态 |
+|----|------|------|------|
+| `'3'` | 音效3 拇指琴 | `kalimba.wav` | **采用** |
+| `'1'` | 音效1 钢片琴 | `celesta.wav` | 可切 |
+| `'2'` | 音效2 木琴 C5 | `xylo_c5.wav` | 可切 |
 
-| 包 | 音色 | 样本 |
-|----|------|------|
-| **音效1** `'1'` | 钢片琴 | `public/sfx/notes/celesta.wav`（CC0 acollier123） |
-| **音效2** `'2'` | 木琴 C5（最早那版琴音） | `public/sfx/notes/xylo_c5.wav`（CC0 sgossner / VSCO 2） |
-| **音效3** `'3'` **采用** | 拇指琴 | `public/sfx/notes/kalimba.wav`（CC0 dvdfu） |
+`setSfxPack('1'\|'2'\|'3')`。数字：`TUNES`（octave / scaleCells 14 / tailCents 100）。
 
-## 1. 结论
+## 引擎约定
+
+- 一个 `AudioContext`，进局预解码当前包。
+- `pointerdown` 栈里 `resume()`；若仍 `suspended` 或样本未好，**排队播这一下，不丢**。
+- 包络从 `0.0001` 起，禁止 `exponentialRamp` 从 0。
+- 调研文件放 `docs/audio/sources/`，运行时只打 `public/sfx/`。
+
+## 长期：原生池
 
 卡顿通常不是 wav 太大，而是热路径上做了这些事：
 
@@ -61,9 +63,9 @@ iOS 生产路径 **禁止** WebAudio。
 - 每次 `AVAudioPlayer` 重定位 / 重新 load
 - 玩法里直接 `new Audio(url).play()`
 
-业务层只调用 `audio.playSfx(id)`，不碰播放器。具名 API（如 `gameSfx.press()`）只是薄壳。
+业务层只调用 `gameSfx.*`，不碰播放器。下表是原生池目标结构；现行实现是 `noteSfx.ts`。
 
-## 3. 分层
+## 3. 分层（目标）
 
 | 层 | 建议路径 | 职责 |
 |----|----------|------|

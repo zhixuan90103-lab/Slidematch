@@ -26,7 +26,7 @@
 | [docs/ENGINEERING.md](./docs/ENGINEERING.md) | 底座约定 |
 | [docs/ENTRYPOINTS.md](./docs/ENTRYPOINTS.md) | 启动链 |
 | [docs/HAPTICS.md](./docs/HAPTICS.md) | 震动接入 §0 |
-| [docs/AUDIO.md](./docs/AUDIO.md) | 音效：WebAudio `noteSfx`；原生池长期规范 |
+| [docs/AUDIO.md](./docs/AUDIO.md) | 音效3 拇指琴 / `gameSfx`；原生池长期 |
 | [docs/PERF.md](./docs/PERF.md) | 魔法翻牌性能：已做 / 未过关 |
 
 ## 入口地图

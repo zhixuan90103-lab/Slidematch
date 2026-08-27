@@ -242,8 +242,7 @@ export function playClearSfx(_fromIndex?: number): void {
     const b = tune().octave * 0.7;
     playTone(c, b * (9 / 8), 0.26, 0.012, 0.45);
     playTone(c, b * (4 / 3), 0.24, 0.012, 0.48, 0.07);
-    playTone(c, b * (5 / 3), 0.26, 0.012, 0.52, 0.14);
-    playTone(c, b * (15 / 8), 0.22, 0.012, 0.55, 0.21);
+    playTone(c, b * (5 / 3), 0.12, 0.012, 0.4, 0.14);
   });
 }
 

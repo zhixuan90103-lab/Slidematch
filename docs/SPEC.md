@@ -7,14 +7,15 @@
 | 1 | [AGENTS.md](../AGENTS.md) | 底座硬性：390×844、`base: './'`、DOM、无 WebGL 回退、iOS Safe Area | 玩法细节 |
 | 2 | [DESIGN.md](./DESIGN.md) | 玩法：6×6、三色、四向、≥2、仅抬手消、静止子可划、无落地自动三消 | 像素、插值、轴滞回、道具细则 |
 | 3 | [ITEMS.md](./ITEMS.md) | 道具：生成、转化、变色散消、魔法本划全同色、魔法后顶补色种 ±1 | 手感、下落公式、反馈像素 |
-| 4 | [FEEDBACK.md](./FEEDBACK.md) | 基础选中 / 消除 / 变色 / 合成飞入与弹出 | 点中尺子、散消名单算法 |
+| 4 | [FEEDBACK.md](./FEEDBACK.md) | 基础选中 / 消除 / 变色 / 合成飞入与弹出 | 点中尺子、散消名单算法、音效波形 |
+| 4b | [AUDIO.md](./AUDIO.md) | 玩法音效：事件、包、unlock | 原生 AVAudio 长期方案 |
 | 5 | [OPERATION.md](./OPERATION.md) | **操作手感**：点中、插值、加格、减格、常数、验收 | 消子、下落、分数 |
 | 6 | [BOARD.md](./BOARD.md) | 视觉框 / 浅格 / 棋子绘制 / HUD / 素材 | 路径算法 |
 | 7 | [DROP.md](./DROP.md) | 占坑、重力、0.22、稳定子可划、初速/加速度/上限 | 滑动输入 |
 | 8 | [SWIPE.md](./SWIPE.md) | 路径规则摘要 | 手感实现（让 5） |
 
 运行时数字：`src/game/design.ts`（`LOOK` / `ART` / `GRID` / `RULES` / `PIECE_DRAW` / `FEEL`）。与 2、3、4、6、7 冲突时先改文档再改该文件。  
-备忘、不当局：[SWIPE-RESEARCH.md](./SWIPE-RESEARCH.md)、[PLAN.md](./PLAN.md)、[HANDOFF.md](./HANDOFF.md)、[SOURCES.md](./SOURCES.md)、[PERF.md](./PERF.md)（卡顿检索与已做优化）。
+备忘、不当局：[SWIPE-RESEARCH.md](./SWIPE-RESEARCH.md)、[PLAN.md](./PLAN.md)、[HANDOFF.md](./HANDOFF.md)、[SOURCES.md](./SOURCES.md)、[PERF.md](./PERF.md)（卡顿检索与已做优化）。音效事件以 [AUDIO.md](./AUDIO.md) 为准。
 
 ## 当前规格（已冻结）
 
@@ -34,6 +35,7 @@
 | 魔法子 | `piece-magic.png`；本划全同色。三层：原色底板 + 白板 overlay + 金币 overlay。原色不换白板横条。路径 Additive **只叠金币**（0.18），白板不叠。抬手只消路径并飞金币到 HUD 图标；划满盘 = 清屏。**有效抬手后顶补色种 ±1**（见上「色数」） |
 | 路径角标 | 入队序号；普通直径 18 右上、队尾 40 顶缘居中（DOM 盒固定队尾直径，视觉 `scale`）；小号数字视觉 13.6（盒×0.34）；普通抬手直接消失；变色散消从 1 逐个收、每收一个队尾数字 -1；进局预铺 36，不用只 `opacity: 0` |
 | 震动 | Core Haptics I/S（`FEEL.haptic`）。按下 0.55/0.86；过格/回退 0.35/0.50；散消点子 0.30/0.40；有效抬手找对 pattern。取消 / &lt;2 **不震**。SceneDelegate 必须 `BridgeViewController()` |
+| 音效 | **音效3 拇指琴**。`gameSfx`：过格大调低两度、1–14 后钉住；魔法入场四连；魔法过格短五度；消除 D–F–A（第三音弱）。取消 / &lt;2 **不响**。细则 [AUDIO.md](./AUDIO.md) |
 | 反馈 | 选中浮起；消子缩完才腾格+碎屑；达门槛则路径飞入队尾弹出道具。见 [FEEDBACK.md](./FEEDBACK.md) |
 | HUD | 左 **COINS** 方 130 + 右 **SCORE** 长条（边距=间距 14）。COINS：胶囊条 + 图标 + 数字槽。仅魔法路径每格 +1；飞币约 2/3 条，落地 rolling。设置左下。细则 [BOARD.md](./BOARD.md) |
 | iOS | `com.slidematch.play` / SlideMatch |

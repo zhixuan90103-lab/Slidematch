@@ -143,7 +143,7 @@ void haptics.stopContinuous();
 | 有效抬手（≥2） | 瞬态 0.50/0.30 → 隔 50ms → 持续 100ms 0.40/0.19，强度收到 0 |
 | 取消 / &lt;2 / `pointercancel` | **不震** |
 
-音效走同一 `fireHaptic`（`src/audio/noteSfx.ts`）。无震动则无声。
+音效走同一 `fireHaptic` 出口，调用 `gameSfx`（[AUDIO.md](./AUDIO.md)）。无震动则无声（取消 / &lt;2）。
 
 ## 1. 和完整玩法工程差在哪
 

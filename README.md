@@ -29,7 +29,7 @@ npm run dev
 | [docs/DROP.md](./docs/DROP.md) | 占坑与下落（初速 / 加速度 / 上限） |
 | [docs/PLAN.md](./docs/PLAN.md) | 阶段 |
 | [docs/HAPTICS.md](./docs/HAPTICS.md) | 震动 §0 |
-| [docs/AUDIO.md](./docs/AUDIO.md) | 音效方案（未实现） |
+| [docs/AUDIO.md](./docs/AUDIO.md) | 音效（音效3 拇指琴） |
 
 ## iOS
 

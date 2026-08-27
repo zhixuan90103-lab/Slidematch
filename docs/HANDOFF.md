@@ -19,11 +19,12 @@
 6. `docs/OPERATION.md` — 滑动手感（不要改回「谁近加谁」）  
 7. `docs/DROP.md` — 占坑 / 0.22 / 腾格时机  
 8. `docs/HAPTICS.md` — 接入 §0；玩法 I/S §0.8  
-9. `src/game/design.ts` — `LOOK` / `RULES` / `FEEL` / `PIECE_DRAW`  
+9. `docs/AUDIO.md` — 音效3 拇指琴 / `gameSfx`  
+10. `src/game/design.ts` — `LOOK` / `RULES` / `FEEL` / `PIECE_DRAW`  
 
 ## 新窗口第一句（可粘贴）
 
-继续 SlideMatch。先读 `docs/SPEC.md`、`DESIGN.md`、`ITEMS.md`、`FEEDBACK.md`、`BOARD.md`、`OPERATION.md`、`DROP.md`、`HAPTICS.md` §0。阶段 A–C–E–F 已完成。色种：开局 3，分数不解锁；用完魔法后顶补 ±1（3–5，降档约 55%）。翻牌走 yaw 横条；魔法是原色子 + 白板 overlay + 金币 overlay。路径 Additive **只叠金币 0.18**，白板不叠。HUD：左 COINS 方 130（胶囊条 + 图标 50 / X-14 + 数字槽宽 55 / X-20）、右 SCORE 长条，边距=间距 14；设置左下齿轮（存档 v26）。魔法飞币约路径 **2/3**，打 HUD 图标：终点 ×0.55、路程 62% 起淡出、打中 punch + rolling。角标进局预铺 36，只用 opacity。震动 `FEEL.haptic`：按下 0.55/0.86，过格与回退 0.35/0.50，散消点子 0.30/0.40，有效抬手找对 pattern。SceneDelegate 必须 `BridgeViewController()`。`lockGestures` 禁网页缩放/长按放大镜；系统 Home、缘滑返回拦不掉。视觉与反馈数字只改 `src/game/design.ts` 的 `LOOK` / `HUD` / `FEEL`。下一刀阶段 D：路径长度 6/8/10 档视+震。点魔法 / 划金币仍可能卡，见 PERF。按钮式全盘清 / 排行榜不要做。
+继续 SlideMatch。先读 `docs/SPEC.md`、`DESIGN.md`、`ITEMS.md`、`FEEDBACK.md`、`BOARD.md`、`OPERATION.md`、`DROP.md`、`HAPTICS.md` §0。阶段 A–C–E–F 已完成。色种：开局 3，分数不解锁；用完魔法后顶补 ±1（3–5，降档约 55%）。翻牌走 yaw 横条；魔法是原色子 + 白板 overlay + 金币 overlay。路径 Additive **只叠金币 0.18**，白板不叠。HUD：左 COINS 方 130（胶囊条 + 图标 50 / X-14 + 数字槽宽 55 / X-20）、右 SCORE 长条，边距=间距 14；设置左下齿轮（存档 v26）。魔法飞币约路径 **2/3**，打 HUD 图标：终点 ×0.55、路程 62% 起淡出、打中 punch + rolling。角标进局预铺 36，只用 opacity。震动 `FEEL.haptic`：按下 0.55/0.86，过格与回退 0.35/0.50，散消点子 0.30/0.40，有效抬手找对 pattern。音效 **音效3 拇指琴**（`gameSfx`）：过格低两度 1–14 后钉住；魔法入场四连；魔法过格短五度；消除 D–F–A（第三音弱）。`pointerdown` 先 unlock。SceneDelegate 必须 `BridgeViewController()`。`lockGestures` 禁网页缩放/长按放大镜；系统 Home、缘滑返回拦不掉。视觉与反馈数字只改 `src/game/design.ts` 的 `LOOK` / `HUD` / `FEEL`。下一刀阶段 D：路径长度 6/8/10 档视+震。点魔法 / 划金币仍可能卡，见 PERF。按钮式全盘清 / 排行榜不要做。
 
 ## 阶段
 
@@ -82,11 +83,13 @@ src/game/scoreFly.ts 金币飞向 HUD 金币图标
 src/game/pathBadge.ts 路径角标运动、散消倒数
 src/game/mount.ts   选中、角标、合成飞入、白板/金币 overlay、脏格子 rAF；魔法抬手写 `sim.colorCount`
 src/game/board.ts   cellFromLocal / 初盘连通
+src/audio/noteSfx.ts  gameSfx（拇指琴）；input pointerdown unlock
 ```
 
 下落：占坑 0.22、软间距 0.85；运动设置三条：初速 600、加速度 1400、上限 1600。落地压扁仍在。
 
-震动：`FEEL.haptic`；`void haptics.playTransient` / `playPattern`。SceneDelegate **禁止** `CAPBridgeViewController()`。
+震动：`FEEL.haptic`；`void haptics.playTransient` / `playPattern`。SceneDelegate **禁止** `CAPBridgeViewController()`。  
+音效：`gameSfx` · [AUDIO.md](./AUDIO.md)。
 
 ## 硬性
 
