@@ -67,22 +67,24 @@ export const FEEL = {
     shadowInSec: 0.1,
     idleLift: 0.3,
     idleHz: 0.85,
-    badgeSize: 18,
-    /** 当前队尾（手指所在格）角标。 */
-    badgeSizeNow: 40,
     /**
-     * 小号视觉字号 = 队尾盒 × 此值（只动字，不改角标直径）。
-     * 0.4 → 16px；两位 0.32 → 12.8px。盒内字号再除以 18/40，抵消整体 scale。
+     * 路径角标。语义见 docs/FEEDBACK.md「路径角标」。
+     * DOM 盒永远是 sizeNow；普通/队尾只改 scale。字号按视觉算，不靠整体再缩一档。
      */
-    badgeFontScale: 0.4,
-    badgeFontWideScale: 0.32,
-    badgeFontNow: 22,
-    badgeFontNowWide: 18,
-    badgeOut: 9,
-    /** 队尾角标圆心相对棋子顶边（正=往下进牌面，负=抬到牌顶之上）。 */
-    badgeNowY: -6,
-    /** 出现、队尾放大/缩小：到点即停。 */
-    badgeSnapSec: 0.12,
+    badge: {
+      size: 18,
+      sizeNow: 40,
+      /** 小号视觉字号 / sizeNow。只动字。0.34 → 13.6px。 */
+      fontScale: 0.34,
+      fontWideScale: 0.28,
+      fontNow: 22,
+      fontNowWide: 18,
+      out: 9,
+      /** 队尾圆心相对棋子顶边（正下、负上）。 */
+      nowY: -6,
+      snapSec: 0.12,
+      opacity: 0.88,
+    },
   },
   /** 复刻 SlideToWord：Core Haptics 瞬态 I/S。取消 / <2 不震。 */
   haptic: {
@@ -108,7 +110,7 @@ export const FEEL = {
   },
   convert: {
     tickSec: 0.07,
-    /** 散子选完后，剩下的气泡数字在这段时间内跑完。 */
+    /** 散子选完后，剩下的角标在这段时间内收完。 */
     tickEmptySpan: 0.12,
     countLift: 28,
     glowSec: 0.16,

@@ -143,6 +143,8 @@ void haptics.stopContinuous();
 | 有效抬手（≥2） | 瞬态 0.50/0.30 → 隔 50ms → 持续 100ms 0.40/0.19，强度收到 0 |
 | 取消 / &lt;2 / `pointercancel` | **不震** |
 
+音效走同一 `fireHaptic`（`src/audio/noteSfx.ts`）。无震动则无声。
+
 ## 1. 和完整玩法工程差在哪
 
 两边原生插件几乎同一套：`AdvancedHaptics`、`CAPBridgedPlugin`、`load()` 里起 `CHHapticEngine`，方法是 `impact` / `playPattern` / `stackImpact` / 连续震 / `setKeepAwake`。

@@ -1,6 +1,6 @@
 /**
- * 真机帧时/层数日志。无远程后台：打到 console + sessionStorage。
- * 场景结束才 flush 一行，避免每帧 console 自己卡。
+ * 真机帧时/层数日志。无远程后台。
+ * 默认关闭。只有 `?debugPerf=1` 才采样、写 sessionStorage、打 console。
  */
 
 export type PerfScene =
@@ -71,33 +71,35 @@ function saveStore(lines: PerfLine[]) {
 }
 
 export function createPerfLog(uiRoot: HTMLElement): {
+  enabled: boolean;
   sample: (scene: PerfScene, s: PerfSample) => void;
   dispose: () => void;
 } {
+  const enabled = debugPerf();
+  if (!enabled) {
+    return { enabled, sample: () => {}, dispose: () => {} };
+  }
+
   let scene: PerfScene | null = null;
   let frames: PerfSample[] = [];
   let magicTap = 0;
   let sawMagic = false;
-  let panel: HTMLPreElement | null = null;
-
-  if (debugPerf()) {
-    panel = document.createElement('pre');
-    panel.id = 'perf-log';
-    panel.style.cssText =
-      'position:absolute;left:8px;bottom:8px;z-index:20;max-width:374px;max-height:160px;overflow:auto;margin:0;padding:6px 8px;border-radius:8px;background:rgba(40,24,32,.72);color:#fff8ef;font:11px/1.35 ui-monospace,Menlo,monospace;pointer-events:auto;white-space:pre-wrap;';
-    panel.title = '点一下复制日志';
-    panel.addEventListener('click', () => {
-      const text = loadStore()
-        .map((l) => JSON.stringify(l))
-        .join('\n');
-      void navigator.clipboard?.writeText(text);
-      panel!.textContent = `${panel!.textContent ?? ''}\n— copied —`;
-    });
-    uiRoot.append(panel);
-    const existing = loadStore();
-    if (existing.length) {
-      panel.textContent = existing.slice(-6).map(formatLine).join('\n');
-    }
+  const panel = document.createElement('pre');
+  panel.id = 'perf-log';
+  panel.style.cssText =
+    'position:absolute;left:8px;bottom:8px;z-index:20;max-width:374px;max-height:160px;overflow:auto;margin:0;padding:6px 8px;border-radius:8px;background:rgba(40,24,32,.72);color:#fff8ef;font:11px/1.35 ui-monospace,Menlo,monospace;pointer-events:auto;white-space:pre-wrap;';
+  panel.title = '点一下复制日志';
+  panel.addEventListener('click', () => {
+    const text = loadStore()
+      .map((l) => JSON.stringify(l))
+      .join('\n');
+    void navigator.clipboard?.writeText(text);
+    panel.textContent = `${panel.textContent ?? ''}\n— copied —`;
+  });
+  uiRoot.append(panel);
+  const existing = loadStore();
+  if (existing.length) {
+    panel.textContent = existing.slice(-6).map(formatLine).join('\n');
   }
 
   const flush = (next: PerfScene | null) => {
@@ -132,6 +134,7 @@ export function createPerfLog(uiRoot: HTMLElement): {
   };
 
   return {
+    enabled,
     sample(next, s) {
       if (next === 'magic_flip' && !sawMagic) {
         magicTap += 1;

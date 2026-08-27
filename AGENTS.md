@@ -26,7 +26,7 @@
 | [docs/ENGINEERING.md](./docs/ENGINEERING.md) | 底座约定 |
 | [docs/ENTRYPOINTS.md](./docs/ENTRYPOINTS.md) | 启动链 |
 | [docs/HAPTICS.md](./docs/HAPTICS.md) | 震动接入 §0 |
-| [docs/AUDIO.md](./docs/AUDIO.md) | 音效方案（未实现） |
+| [docs/AUDIO.md](./docs/AUDIO.md) | 音效：WebAudio `noteSfx`；原生池长期规范 |
 | [docs/PERF.md](./docs/PERF.md) | 魔法翻牌性能：已做 / 未过关 |
 
 ## 入口地图
@@ -47,6 +47,7 @@
 | 禁网页手势 | `src/adapt/lockGestures.ts`（缩放 / 长按放大镜；系统缘滑拦不掉） |
 | WebGPU 底 | `src/create-renderer.ts` |
 | 震动 | `src/utils/haptics.ts` · `docs/HAPTICS.md` §0 |
+| 过格音 | `gameSfx` · `src/audio/noteSfx.ts` · [docs/AUDIO.md](./docs/AUDIO.md) |
 | Capacitor | `capacitor.config.ts`（`contentInset: never`） |
 | 构建 | `vite.config.ts`（**`base: './'`**，端口 **5190**） |
 

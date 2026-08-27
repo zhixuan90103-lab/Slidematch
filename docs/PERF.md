@@ -215,9 +215,7 @@ Bake 阴影要改素材规范（`BOARD.md` / `PIECE_DRAW`），先设计再改�
 
 ### 真机日志（已接）
 
-无远程后台。场景**结束**打一行 `[perf]` 到 Safari/Xcode 控制台，并写入 `sessionStorage.slidematch.perfLog`。
-
-`?debugPerf=1`：左下角叠最后几行，点一下复制。
+无远程后台。默认**不采样、不打日志**。只有 URL 带 `?debugPerf=1` 才在场景结束打一行 `[perf]` 到控制台，写入 `sessionStorage.slidematch.perfLog`，并在左下角叠最后几行（点一下复制）。
 
 字段：`scene` `n` `max` `p90` `avg`（rAF 间隔 ms）`jsMax`（`paintPieces` 那段 JS ms）`imgs` / `coins` / `recs`（DOM 层代理）`tap`（第几次进 `magic_flip`）。
 

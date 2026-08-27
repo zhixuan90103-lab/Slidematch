@@ -88,7 +88,7 @@ HUD 右 **SCORE**、左 **COINS**（标题同色同字）。数字 **ease-out �
 取消 / <2：预览作废，滚回累计
 ```
 
-**金币（本局）：** 仅魔法有效抬手。路径每格 +`coinPerMagicCell`（默认 1）。飞向 HUD 图标：条数 ≈ 路径 × `scoreFlyKeep`（**2/3**）；终点大小 = 图标 × `scoreFlyEndMul`（**0.55**）；路程 `scoreFlyFadeStart`（**0.62**）起淡出，到达时已透明。每枚打中 punch + rolling（credit 均分）。变色散消格、普通划不加。刷新盘面从 0 计。无滑动预览。
+**金币（本局）：** 仅魔法有效抬手。路径每格 +`coinPerMagicCell`（默认 1）。盘上白板金币 overlay 全路径都在。飞向 HUD 图标：条数 ≈ 路径 × `scoreFlyKeep`（**2/3**，只少飞的，不减盘上的）；终点大小 = 图标 × `scoreFlyEndMul`（**0.55**）；路程 `scoreFlyFadeStart`（**0.62**）起淡出，到达时已透明。每枚打中 punch + rolling（credit 均分）。变色散消格、普通划不加。刷新盘面从 0 计。无滑动预览。
 
 魔法优先于变色，不叠乘。
 

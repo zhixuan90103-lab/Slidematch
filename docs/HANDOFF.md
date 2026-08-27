@@ -69,7 +69,7 @@ iOS **`com.slidematch.play` / SlideMatch**。
 ```
 src/game/design.ts  LOOK / ART / GRID / RULES / FEEL / HUD / PIECE_DRAW（`stepColorCount`）
 src/game/config.ts  资源、yaw 横条、warmup
-src/game/perfLog.ts 真机 [perf] 帧时（console / sessionStorage / ?debugPerf=1）
+src/game/perfLog.ts 真机 [perf] 帧时（默认关；`?debugPerf=1` 才 console / sessionStorage）
 src/game/items.ts   生成、散消、resolveStroke
 src/game/score.ts   n² × 倍率，SCORE/COINS 累计滚动
 src/game/clearFx.ts 消除碎屑
@@ -77,9 +77,9 @@ src/game/settings.ts 调参覆盖 LOOK + HUD（存档 v26；金币条高低/数�
 src/game/path.ts    四邻过边/进格、加/减、插值
 src/game/input.ts   第一指、cancel 续划、合批
 src/game/drop.ts    占坑 0.22、飞入一起腾格、道具格锁
-src/game/convertLook.ts 锁色 / 魔法显示
+src/game/convertLook.ts 锁色 / 魔法显示 / 变色四邻不暗
 src/game/scoreFly.ts 金币飞向 HUD 金币图标
-src/game/pathBadge.ts 路径角标运动
+src/game/pathBadge.ts 路径角标运动、散消倒数
 src/game/mount.ts   选中、角标、合成飞入、白板/金币 overlay、脏格子 rAF；魔法抬手写 `sim.colorCount`
 src/game/board.ts   cellFromLocal / 初盘连通
 ```

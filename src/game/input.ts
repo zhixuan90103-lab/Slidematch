@@ -3,6 +3,8 @@
  * Borrowed from SlidetoWord mount.ts — not ray geometry.
  */
 
+import { unlockNoteSfx } from '../audio/noteSfx';
+
 export type SwipeInputHandlers = {
   onSample: (clientX: number, clientY: number, kind: 'down' | 'move' | 'up') => void;
   onTrueCancel: () => void;
@@ -85,6 +87,7 @@ export function bindSwipeInput(target: HTMLElement, handlers: SwipeInputHandlers
     pendingEnter = true;
     ownerTouchId = nearestLiveTouch(ev.clientX, ev.clientY);
     capturePointer(ev.pointerId);
+    unlockNoteSfx();
     handlers.onSample(ev.clientX, ev.clientY, 'down');
     ev.preventDefault();
   };

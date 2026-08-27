@@ -19,6 +19,7 @@ Slidematch/
 │   ├── game/               # design config settings board mount path drop
 │   ├── assets/             # 框 / 浅格 / 黏土牌 PNG / Inter
 │   ├── adapt/              # lockGestures：禁网页缩放/长按放大镜
+│   ├── audio/noteSfx.ts    # 按下 / 过格 / 散消 / 找对（WebAudio）
 │   └── utils/haptics.ts
 ├── plugins/native-haptics/
 └── scripts/bootstrap-ios.mjs
@@ -100,14 +101,9 @@ Swift **没有** `prepare`；引擎在 `load()` 启动。不要用 JS `prepare()
 玩法 I/S：`FEEL.haptic`（按下 / 过格 / 回退 / 散消点子 / 找对）。  
 业务节奏写在游戏层，不要改插件除非新增原生方法。
 
-## 7b. Audio（尚未实现）
+## 7b. Audio
 
-本仓库无播放代码。接入规范见 [AUDIO.md](./AUDIO.md)：
-
-- Loading **预解码**；热路径禁止 `new Audio()` / decode / 读盘
-- `AudioBatcher`：**每帧最多一次** Capacitor 桥
-- iOS 生产走 `AVAudioEngine` + PCM 缓存 + PlayerNode 池；**禁止**静默 WebAudio
-- Catalog 管 cooldown / priority / maxVoices；忙帧再砍每帧条数
+过格音已接：`src/audio/noteSfx.ts`（WebAudio）。与 `fireHaptic` 并列。原生 PlayerNode 池仍是长期目标，见 [AUDIO.md](./AUDIO.md)。热路径禁止 `new Audio()` / 每发一次桥。
 
 ## 8. iOS 工作流
 
