@@ -32,7 +32,7 @@
 | 道具 | 无道具 ≥5 出变色、≥10 出魔法；路上只有变色且 ≥10 也出魔法；路上有魔法则不出。细则 [ITEMS.md](./ITEMS.md) |
 | 变色子 | `piece-convert.png`；划过可换色；Additive 标散子；松手角标从后往前逐个消失并点散子。细则 [ITEMS.md](./ITEMS.md) · [FEEDBACK.md](./FEEDBACK.md) |
 | 魔法子 | `piece-magic.png`；本划全同色。三层：原色底板 + 白板 overlay + 金币 overlay。原色不换白板横条。路径 Additive **只叠金币**（0.18），白板不叠。抬手只消路径并飞金币到 HUD 图标；划满盘 = 清屏。**有效抬手后顶补色种 ±1**（见上「色数」） |
-| 路径角标 | 入队序号；普通直径 18、队尾 30（DOM 盒固定 30，视觉 `scale`）；进局预铺 36，不用只 `opacity: 0` |
+| 路径角标 | 入队序号；普通直径 18 右上、队尾 40 顶缘居中（DOM 盒固定队尾直径，视觉 `scale`）；小号数字视觉 16（盒×0.4）；普通抬手直接消失；变色散消从 1 逐个收、每收一个队尾数字 -1；进局预铺 36，不用只 `opacity: 0` |
 | 震动 | Core Haptics I/S（`FEEL.haptic`）。按下 0.55/0.86；过格/回退 0.35/0.50；散消点子 0.30/0.40；有效抬手找对 pattern。取消 / &lt;2 **不震**。SceneDelegate 必须 `BridgeViewController()` |
 | 反馈 | 选中浮起；消子缩完才腾格+碎屑；达门槛则路径飞入队尾弹出道具。见 [FEEDBACK.md](./FEEDBACK.md) |
 | HUD | 左 **COINS** 方 130 + 右 **SCORE** 长条（边距=间距 14）。COINS：胶囊条 + 图标 + 数字槽。仅魔法路径每格 +1；飞币约 2/3 条，落地 rolling。设置左下。细则 [BOARD.md](./BOARD.md) |

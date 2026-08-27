@@ -57,6 +57,34 @@ export function badgeBoxPx(): number {
   return FEEL.select.badgeSizeNow;
 }
 
-export function badgeFontPx(order: number): string {
-  return order > 9 ? '13px' : '16px';
+export function badgeFontPx(order: number, now = false): string {
+  const s = FEEL.select;
+  if (now) return `${order > 9 ? s.badgeFontNowWide : s.badgeFontNow}px`;
+  const box = s.badgeSizeNow;
+  const k = box > 0 ? s.badgeSize / box : 1;
+  const visual = box * (order > 9 ? s.badgeFontWideScale : s.badgeFontScale);
+  return `${visual / Math.max(0.04, k)}px`;
+}
+
+/** 普通：右上外伸。队尾：棋子顶缘水平居中。 */
+export function badgePlace(
+  x: number,
+  y: number,
+  liftY: number,
+  pieceW: number,
+  box: number,
+  bs: number,
+  now: boolean,
+): { tx: string; origin: string } {
+  const k = box > 0 ? bs / box : 1;
+  if (now) {
+    const left = x + pieceW / 2 - box / 2;
+    const top = y - liftY + FEEL.select.badgeNowY - box / 2;
+    return { tx: `translate3d(${left}px,${top}px,0) scale(${k})`, origin: '50% 50%' };
+  }
+  const out = FEEL.select.badgeOut;
+  return {
+    tx: `translate3d(${x + pieceW - bs + out}px,${y - liftY - out}px,0) scale(${k})`,
+    origin: '0 0',
+  };
 }

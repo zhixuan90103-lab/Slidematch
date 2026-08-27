@@ -534,9 +534,9 @@ body.native-app #shell {
   border-radius: 50%;
   border: 1.5px solid rgba(255, 248, 239, 0.9);
   font-family: Inter, -apple-system, 'Segoe UI', sans-serif;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1;
-  letter-spacing: 0;
+  letter-spacing: -0.06em;
   text-align: center;
   pointer-events: none;
   box-shadow: none;

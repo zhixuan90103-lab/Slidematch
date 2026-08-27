@@ -69,8 +69,18 @@ export const FEEL = {
     idleHz: 0.85,
     badgeSize: 18,
     /** 当前队尾（手指所在格）角标。 */
-    badgeSizeNow: 30,
+    badgeSizeNow: 40,
+    /**
+     * 小号视觉字号 = 队尾盒 × 此值（只动字，不改角标直径）。
+     * 0.4 → 16px；两位 0.32 → 12.8px。盒内字号再除以 18/40，抵消整体 scale。
+     */
+    badgeFontScale: 0.4,
+    badgeFontWideScale: 0.32,
+    badgeFontNow: 22,
+    badgeFontNowWide: 18,
     badgeOut: 9,
+    /** 队尾角标圆心相对棋子顶边（正=往下进牌面，负=抬到牌顶之上）。 */
+    badgeNowY: -6,
     /** 出现、队尾放大/缩小：到点即停。 */
     badgeSnapSec: 0.12,
   },

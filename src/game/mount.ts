@@ -1,5 +1,5 @@
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../adapt/design';
-import { cellFromLocal, createFilledBoard, type Cell } from './board';
+import { cellFromLocal, createFilledBoard, isOrthoAdjacent, type Cell } from './board';
 import {
   clearMotion,
   COLS,
@@ -69,7 +69,7 @@ import {
   type RecolorFx,
 } from './convertLook';
 import { magicClearDelay, pickScoreFlyCells, scoreFlyEase, scoreFlyScale, type ScoreFly } from './scoreFly';
-import { badgeBoxPx, badgeFontPx, badgeTargetPx, tickBadgeMotion, type BadgeMotion } from './pathBadge';
+import { badgeBoxPx, badgeFontPx, badgePlace, badgeTargetPx, tickBadgeMotion, type BadgeMotion } from './pathBadge';
 import { createPerfLog, type PerfScene } from './perfLog';
 import {
   commitStroke,
@@ -319,6 +319,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     op: string;
     z: string;
     tx: string;
+    origin: string;
   };
   const badgePaint = new Map<HTMLElement, BadgePaint>();
 
@@ -814,15 +815,23 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       dropGlow(coinGlowEls);
     }
     const order = pathOrder.get(`${pieceRow},${piece.col}`);
-    const cap = pendingConvert ? pendingConvert.shown : 999;
-    const keepCount = order != null && order <= cap;
+    const tail = pendingConvert
+      ? pendingConvert.cells[pendingConvert.cells.length - 1]
+      : path?.cells[path.cells.length - 1];
+    const isNow = !!tail && tail.row === pieceRow && tail.col === piece.col;
+    const keepCount = pendingConvert
+      ? isNow
+        ? pendingConvert.shown > 0
+        : order != null && order >= pendingConvert.vanishAt
+      : order != null;
+    const label = pendingConvert && isNow ? pendingConvert.shown : (order ?? 0);
     let badge = pathBadgeEls.get(piece.id);
     if (!badge) {
       badge = acquirePathBadge();
       pathBadgeEls.set(piece.id, badge);
     }
     const curSize = badgeMo.get(piece.id)?.x ?? 0;
-    const showBadge = onPath && order != null && fade > 0.08 && (keepCount || curSize > 1.2);
+    const showBadge = fade > 0.08 && (keepCount || curSize > 1.2) && (onPath || !!pendingConvert);
     if (showBadge) {
       const bs = badgeMo.get(piece.id)?.x ?? (keepCount ? FEEL.select.badgeSize : 0);
       if (!keepCount && bs < 1.2) {
@@ -830,7 +839,6 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         const prev = badgePaint.get(badge);
         if (prev) prev.op = '0';
       } else {
-        const out = FEEL.select.badgeOut;
         const swipeColor = path?.magic
           ? 6
           : path && path.color >= 0
@@ -842,20 +850,29 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
                 : piece.color;
         const tint = pieceBadgeStyle(swipeColor);
         const box = badgeBoxPx();
-        const k = bs / box;
+        const placed = badgePlace(x, y, liftY, layout.pieceW, box, bs, isNow);
         const op = String(0.88 * (keepCount ? 1 : Math.min(1, bs / FEEL.select.badgeSize)));
         const zStr = String(20 + z);
-        const font = badgeFontPx(order);
-        const tx = `translate3d(${x + layout.pieceW - bs + out}px,${y - liftY - out}px,0) scale(${k})`;
+        const font = badgeFontPx(label, isNow);
         const prev = badgePaint.get(badge);
-        if (!prev || prev.order !== order) badge.textContent = String(order);
+        if (!prev || prev.order !== label) badge.textContent = String(label);
         if (!prev || prev.bg !== tint.bg) badge.style.background = tint.bg;
         if (!prev || prev.fg !== tint.fg) badge.style.color = tint.fg;
         if (!prev || prev.font !== font) badge.style.fontSize = font;
         if (!prev || prev.op !== op) badge.style.opacity = op;
         if (!prev || prev.z !== zStr) badge.style.zIndex = zStr;
-        if (!prev || prev.tx !== tx) badge.style.transform = tx;
-        badgePaint.set(badge, { order, bg: tint.bg, fg: tint.fg, font, op, z: zStr, tx });
+        if (!prev || prev.origin !== placed.origin) badge.style.transformOrigin = placed.origin;
+        if (!prev || prev.tx !== placed.tx) badge.style.transform = placed.tx;
+        badgePaint.set(badge, {
+          order: label,
+          bg: tint.bg,
+          fg: tint.fg,
+          font,
+          op,
+          z: zStr,
+          tx: placed.tx,
+          origin: placed.origin,
+        });
         if (badge.parentElement !== lifts) lifts.append(badge);
       }
     } else if (badge.style.opacity !== '0') {
@@ -1047,10 +1064,11 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     settle: StrokeResolve;
     queue: Cell[];
     shown: number;
+    vanishAt: number;
     acc: number;
     loc: { x: number; y: number };
     holding: boolean;
-    emptyTick: number | null;
+    holdAfter: boolean;
   } | null = null;
   applyLayout();
   for (const piece of sim.pieces.values()) {
@@ -1373,16 +1391,17 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       if (!path.magic || gained < 1) setScoreTarget(coinRoll, coins);
       paintHud();
       if (path.magic) sim.colorCount = stepColorCount(sim.colorCount);
-      if (settle.extraCells.length && lastLocal) {
+      if (settle.extraCells.length) {
         pendingConvert = {
           cells: path.cells.map((c) => ({ row: c.row, col: c.col })),
           settle,
           queue: settle.extraCells.slice(),
           shown: path.cells.length,
+          vanishAt: 1,
           acc: 0,
-          loc: { x: lastLocal.x, y: lastLocal.y },
+          loc: lastLocal ? { x: lastLocal.x, y: lastLocal.y } : { x: 0, y: 0 },
           holding: false,
-          emptyTick: null,
+          holdAfter: true,
         };
         extraKeys.clear();
         lastDipHover = null;
@@ -1497,8 +1516,11 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   });
 
   const tickBadgeSize = (dt: number): boolean => {
-    const tail = path && path.cells.length ? path.cells[path.cells.length - 1] : undefined;
-    const cap = pendingConvert ? pendingConvert.shown : 999;
+    const tail = pendingConvert
+      ? pendingConvert.cells[pendingConvert.cells.length - 1]
+      : path && path.cells.length
+        ? path.cells[path.cells.length - 1]
+        : undefined;
     let busy = false;
     const ids = new Set(badgeMo.keys());
     for (const id of pathBadgeEls.keys()) ids.add(id);
@@ -1511,12 +1533,13 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       const row = live.destRow ?? live.sourceRow;
       const key = `${row},${live.col}`;
       const order = pathOrder.get(key);
-      const keep = order != null && order <= cap && pathKeys.has(key);
-      const now = keep
-        ? pendingConvert
-          ? order === pendingConvert.shown
-          : !!tail && tail.row === row && tail.col === live.col
-        : false;
+      const isTail = !!tail && tail.row === row && tail.col === live.col;
+      const keep = pendingConvert
+        ? isTail
+          ? pendingConvert.shown > 0
+          : order != null && order >= pendingConvert.vanishAt
+        : order != null && pathKeys.has(key);
+      const now = keep && isTail;
       const next = tickBadgeMotion(badgeMo.get(id), badgeTargetPx(keep, now), dt);
       if (!next) badgeMo.delete(id);
       else {
@@ -1633,11 +1656,22 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     return busy;
   };
 
+  const touchesPathConvert = (row: number, col: number): boolean => {
+    if (!path) return false;
+    const at = { row, col };
+    for (const cell of path.cells) {
+      if (!isConvertColor(colors[cell.row]![cell.col]!)) continue;
+      if (isOrthoAdjacent(at, cell)) return true;
+    }
+    return false;
+  };
+
   const pieceShouldDim = (piece: Piece): boolean => {
     if (!path || path.magic || piece.state === 'clearing') return false;
     const pieceRow = piece.destRow ?? piece.sourceRow;
     if (pathKeys.has(`${pieceRow},${piece.col}`)) return false;
     if (extraKeys.has(`${pieceRow},${piece.col}`)) return false;
+    if ((path.color < 0 || path.flex) && touchesPathConvert(pieceRow, piece.col)) return false;
     if (path.color < 0) return true;
     if (isItemColor(piece.color)) return false;
     return piece.color !== path.color;
@@ -1717,35 +1751,29 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     if (keep) paintHud();
     if (pendingConvert) {
       pendingConvert.acc += dt;
-      if (
-        pendingConvert.emptyTick == null &&
-        pendingConvert.queue.length === 0 &&
-        pendingConvert.shown > 0
-      ) {
-        pendingConvert.emptyTick = FEEL.convert.tickEmptySpan / pendingConvert.shown;
-      }
-      const tick =
-        pendingConvert.queue.length > 0
-          ? FEEL.convert.tickSec
-          : (pendingConvert.emptyTick ?? FEEL.convert.tickSec);
+      const tick = FEEL.convert.tickSec;
       while (pendingConvert.shown > 0 && pendingConvert.acc >= tick) {
         pendingConvert.acc -= tick;
         pendingConvert.shown -= 1;
+        pendingConvert.vanishAt += 1;
         const cell = pendingConvert.queue.shift();
         if (cell) pickConvertExtra(cell);
       }
       if (pendingConvert.shown <= 0) {
         for (const cell of pendingConvert.queue) pickConvertExtra(cell);
         pendingConvert.queue.length = 0;
-        if (!pendingConvert.holding) {
+        if (!pendingConvert.holdAfter) {
+          const job = pendingConvert;
+          commitClear(job.cells, job.settle);
+        } else if (!pendingConvert.holding) {
           pendingConvert.holding = true;
           pendingConvert.acc = 0;
         }
       }
-      if (pendingConvert.holding && pendingConvert.acc >= FEEL.convert.holdSec) {
+      if (pendingConvert?.holding && pendingConvert.acc >= FEEL.convert.holdSec) {
         const job = pendingConvert;
         commitClear(job.cells, job.settle);
-      } else {
+      } else if (pendingConvert) {
         keep = true;
       }
     }
