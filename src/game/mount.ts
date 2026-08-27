@@ -128,16 +128,20 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     hudBar.style.setProperty('--hud-coin-icon-w', `${iconW}px`);
     hudBar.style.setProperty('--hud-coin-icon-h', `${iconH}px`);
     hudBar.style.setProperty('--hud-label-y', `${tune.hudLabelY}px`);
-    hudBar.style.setProperty('--hud-coin-icon-x', `${HUD.coinIconX}px`);
-    hudBar.style.setProperty('--hud-coin-icon-y', `${HUD.coinIconY}px`);
-    hudBar.style.setProperty('--hud-coin-num-x', `${HUD.coinNumX}px`);
-    hudBar.style.setProperty('--hud-coin-num-y', `${HUD.coinNumY}px`);
+    hudBar.style.setProperty('--hud-coin-icon-x', `${tune.hudCoinIconX}px`);
+    hudBar.style.setProperty('--hud-coin-icon-y', `${tune.hudCoinIconY}px`);
+    hudBar.style.setProperty('--hud-coin-num-x', `${tune.hudCoinNumX}px`);
+    hudBar.style.setProperty('--hud-coin-num-y', `${tune.hudCoinNumY}px`);
+    hudBar.style.setProperty('--hud-coin-num-w', `${tune.hudCoinNumW}px`);
     const gap = 4;
     const refNum = Math.round(tune.hudCoinSize * 0.62);
     const inner = tune.hudPanelHeight - 2 * panelW;
-    const anchor = Math.round((inner - iconW - gap - refNum) / 2 + HUD.coinIconX);
+    const anchor = Math.round((inner - iconW - gap - refNum) / 2);
     hudBar.style.setProperty('--hud-coin-gap', `${gap}px`);
     hudBar.style.setProperty('--hud-coin-anchor', `${anchor}px`);
+    hudBar.style.setProperty('--hud-coin-bar-h', `${HUD.coinBarH}px`);
+    hudBar.style.setProperty('--hud-coin-bar-slice', String(HUD.coinBarSlice));
+    hudBar.style.setProperty('--hud-coin-bar-y', `${tune.hudCoinBarY}px`);
     requestAnimationFrame(() => fitCoinNum());
   };
   const perf = createPerfLog(uiRoot);
@@ -1905,8 +1909,26 @@ function mountSettings(
     <label>金币数字上限<span data-k="hudCoinSize">${initial.hudCoinSize}</span>
       <input type="range" data-k="hudCoinSize" min="16" max="48" step="1" value="${initial.hudCoinSize}" />
     </label>
-    <label>金币图标<span data-k="hudCoinIconH">${initial.hudCoinIconH}</span>
+    <label>金币数字宽度<span data-k="hudCoinNumW">${initial.hudCoinNumW}</span>
+      <input type="range" data-k="hudCoinNumW" min="16" max="80" step="1" value="${initial.hudCoinNumW}" />
+    </label>
+    <label>金币数字X<span data-k="hudCoinNumX">${initial.hudCoinNumX}</span>
+      <input type="range" data-k="hudCoinNumX" min="-40" max="40" step="1" value="${initial.hudCoinNumX}" />
+    </label>
+    <label>金币数字Y<span data-k="hudCoinNumY">${initial.hudCoinNumY}</span>
+      <input type="range" data-k="hudCoinNumY" min="-40" max="40" step="1" value="${initial.hudCoinNumY}" />
+    </label>
+    <label>金币图标大小<span data-k="hudCoinIconH">${initial.hudCoinIconH}</span>
       <input type="range" data-k="hudCoinIconH" min="24" max="72" step="1" value="${initial.hudCoinIconH}" />
+    </label>
+    <label>金币图标X<span data-k="hudCoinIconX">${initial.hudCoinIconX}</span>
+      <input type="range" data-k="hudCoinIconX" min="-40" max="40" step="1" value="${initial.hudCoinIconX}" />
+    </label>
+    <label>金币图标Y<span data-k="hudCoinIconY">${initial.hudCoinIconY}</span>
+      <input type="range" data-k="hudCoinIconY" min="-40" max="40" step="1" value="${initial.hudCoinIconY}" />
+    </label>
+    <label>金币条高低<span data-k="hudCoinBarY">${initial.hudCoinBarY}</span>
+      <input type="range" data-k="hudCoinBarY" min="-40" max="40" step="1" value="${initial.hudCoinBarY}" />
     </label>
     <p class="tune-section">棋盘</p>
     <label>棋盘宽<span data-k="visualWidth">${initial.visualWidth}</span>
@@ -1957,8 +1979,15 @@ function mountSettings(
   uiRoot.append(btn);
 
   const panel = root.querySelector('#tune-panel')!;
-  const open = () => root.classList.add('is-open');
-  const close = () => root.classList.remove('is-open');
+  const hud = uiRoot.querySelector('#hud');
+  const open = () => {
+    root.classList.add('is-open');
+    hud?.classList.add('is-tuning');
+  };
+  const close = () => {
+    root.classList.remove('is-open');
+    hud?.classList.remove('is-tuning');
+  };
   btn.addEventListener('click', () => {
     if (root.classList.contains('is-open')) close();
     else open();

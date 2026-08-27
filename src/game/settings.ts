@@ -1,6 +1,6 @@
 import { COLS, FRAME_SCALE, FRAME_SLICE, HUD, LOOK, PIECE_ASPECT, ROWS } from './config';
 
-const KEY = 'slidematch.tune.v21';
+const KEY = 'slidematch.tune.v26';
 
 export type Tune = {
   visualWidth: number;
@@ -21,6 +21,12 @@ export type Tune = {
   hudScoreY: number;
   hudCoinSize: number;
   hudCoinIconH: number;
+  hudCoinIconX: number;
+  hudCoinIconY: number;
+  hudCoinNumX: number;
+  hudCoinNumY: number;
+  hudCoinNumW: number;
+  hudCoinBarY: number;
   hudLabelY: number;
 };
 
@@ -34,6 +40,12 @@ export const TUNE_DEFAULTS: Tune = {
   hudScoreY: HUD.scoreY,
   hudCoinSize: HUD.coinSize,
   hudCoinIconH: HUD.coinIconH,
+  hudCoinIconX: HUD.coinIconX,
+  hudCoinIconY: HUD.coinIconY,
+  hudCoinNumX: HUD.coinNumX,
+  hudCoinNumY: HUD.coinNumY,
+  hudCoinNumW: HUD.coinNumW,
+  hudCoinBarY: HUD.coinBarY,
   hudLabelY: HUD.labelY,
 };
 
@@ -78,6 +90,12 @@ export function loadTune(): Tune {
       hudScoreY: clamp(parsed.hudScoreY ?? TUNE_DEFAULTS.hudScoreY, -32, 32),
       hudCoinSize: clamp(parsed.hudCoinSize ?? TUNE_DEFAULTS.hudCoinSize, 16, 48),
       hudCoinIconH: clamp(parsed.hudCoinIconH ?? TUNE_DEFAULTS.hudCoinIconH, 24, 72),
+      hudCoinIconX: clamp(parsed.hudCoinIconX ?? TUNE_DEFAULTS.hudCoinIconX, -40, 40),
+      hudCoinIconY: clamp(parsed.hudCoinIconY ?? TUNE_DEFAULTS.hudCoinIconY, -40, 40),
+      hudCoinNumX: clamp(parsed.hudCoinNumX ?? TUNE_DEFAULTS.hudCoinNumX, -40, 40),
+      hudCoinNumY: clamp(parsed.hudCoinNumY ?? TUNE_DEFAULTS.hudCoinNumY, -40, 40),
+      hudCoinNumW: clamp(parsed.hudCoinNumW ?? TUNE_DEFAULTS.hudCoinNumW, 16, 80),
+      hudCoinBarY: clamp(parsed.hudCoinBarY ?? TUNE_DEFAULTS.hudCoinBarY, -40, 40),
       hudLabelY: clamp(parsed.hudLabelY ?? TUNE_DEFAULTS.hudLabelY, -32, 32),
     };
   } catch {

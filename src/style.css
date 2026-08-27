@@ -229,8 +229,29 @@ body.native-app #shell {
   min-height: var(--hud-coin-icon-h, 45px);
 }
 
+.hud-coins-bar {
+  position: absolute;
+  z-index: 0;
+  left: 2px;
+  right: 2px;
+  top: 50%;
+  height: var(--hud-coin-bar-h, 47px);
+  margin-top: calc(var(--hud-coin-bar-h, 47px) / -2);
+  box-sizing: border-box;
+  pointer-events: none;
+  border-style: solid;
+  border-color: transparent;
+  border-width: 0 calc(var(--hud-coin-bar-h, 47px) / 2);
+  border-image-source: url('./assets/hud-coin-bar.png');
+  border-image-slice: 0 var(--hud-coin-bar-slice, 62) 0 var(--hud-coin-bar-slice, 62) fill;
+  border-image-width: 0 calc(var(--hud-coin-bar-h, 47px) / 2);
+  border-image-repeat: stretch;
+  transform: translateY(var(--hud-coin-bar-y, 15px));
+}
+
 .hud-coins-icon {
   position: absolute;
+  z-index: 1;
   left: var(--hud-coin-anchor, 12px);
   top: 50%;
   width: var(--hud-coin-icon-w, 38px);
@@ -238,14 +259,17 @@ body.native-app #shell {
   margin-top: calc(var(--hud-coin-icon-h, 45px) / -2);
   background: url('./assets/coin.png') center / contain no-repeat;
   transform-origin: center center;
-  transform: translateY(var(--hud-coin-icon-y, 15px)) scale(var(--hud-coin-icon-punch, 1));
+  transform: translate(var(--hud-coin-icon-x, -8px), var(--hud-coin-icon-y, 15px))
+    scale(var(--hud-coin-icon-punch, 1));
 }
 
 .hud-coins-n {
+  position: relative;
+  z-index: 1;
   display: block;
   box-sizing: border-box;
   margin-left: calc(var(--hud-coin-anchor, 12px) + var(--hud-coin-icon-w, 38px) + var(--hud-coin-gap, 4px));
-  width: calc(100% - var(--hud-coin-anchor, 12px) - var(--hud-coin-icon-w, 38px) - var(--hud-coin-gap, 4px));
+  width: var(--hud-coin-num-w, 44px);
   min-width: 0;
   font-family: Inter, -apple-system, 'Segoe UI', sans-serif;
   font-size: var(--hud-coin-size, 36px);
@@ -256,7 +280,13 @@ body.native-app #shell {
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
-  transform: translateY(var(--hud-coin-num-y, 15px));
+  transform: translate(var(--hud-coin-num-x, 8px), var(--hud-coin-num-y, 15px));
+}
+
+#hud.is-tuning .hud-coins-n {
+  outline: 1.5px solid #c47ee0;
+  outline-offset: -1px;
+  background: rgba(196, 126, 224, 0.22);
 }
 
 .hud-score-wrap {
@@ -545,7 +575,6 @@ body.native-app #shell {
 }
 
 #btn-settings {
-  display: none;
   position: absolute;
   left: calc(var(--safe-left) + 14px);
   bottom: calc(var(--safe-bottom) + 14px);
@@ -559,6 +588,7 @@ body.native-app #shell {
   color: var(--ink);
   background: rgba(253, 241, 231, 0.92);
   box-shadow: 0 3px 8px rgba(140, 100, 80, 0.22);
+  display: grid;
   place-items: center;
 }
 

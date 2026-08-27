@@ -23,7 +23,7 @@
 
 ## 新窗口第一句（可粘贴）
 
-继续 SlideMatch。先读 `docs/SPEC.md`、`DESIGN.md`、`ITEMS.md`、`FEEDBACK.md`、`BOARD.md`、`OPERATION.md`、`DROP.md`、`HAPTICS.md` §0。阶段 A–C–E–F 已完成。色种：开局 3，分数不解锁；用完魔法后顶补 ±1（3–5，降档约 55%）。翻牌走 yaw 横条；魔法是原色子 + 白板 overlay + 金币 overlay。路径 Additive **只叠金币 0.18**，白板不叠。HUD：左 COINS 方 130、右 SCORE 长条，边距=间距 14；设置按钮隐藏。魔法飞币打 HUD 图标：终点 ×0.55、路程 62% 起淡出、打中 punch + 数字 rolling。角标进局预铺 36，只用 opacity。震动 `FEEL.haptic`：按下 0.55/0.86，过格与回退 0.35/0.50，散消点子 0.30/0.40，有效抬手找对 pattern。SceneDelegate 必须 `BridgeViewController()`。`lockGestures` 禁网页缩放/长按放大镜；系统 Home、缘滑返回拦不掉。视觉与反馈数字只改 `src/game/design.ts` 的 `LOOK` / `HUD` / `FEEL`。下一刀阶段 D：路径长度 6/8/10 档视+震。点魔法 / 划金币仍可能卡，见 PERF。按钮式全盘清 / 排行榜不要做。
+继续 SlideMatch。先读 `docs/SPEC.md`、`DESIGN.md`、`ITEMS.md`、`FEEDBACK.md`、`BOARD.md`、`OPERATION.md`、`DROP.md`、`HAPTICS.md` §0。阶段 A–C–E–F 已完成。色种：开局 3，分数不解锁；用完魔法后顶补 ±1（3–5，降档约 55%）。翻牌走 yaw 横条；魔法是原色子 + 白板 overlay + 金币 overlay。路径 Additive **只叠金币 0.18**，白板不叠。HUD：左 COINS 方 130、右 SCORE 长条，边距=间距 14；设置左下齿轮。魔法飞币打 HUD 图标：终点 ×0.55、路程 62% 起淡出、打中 punch + 数字 rolling。角标进局预铺 36，只用 opacity。震动 `FEEL.haptic`：按下 0.55/0.86，过格与回退 0.35/0.50，散消点子 0.30/0.40，有效抬手找对 pattern。SceneDelegate 必须 `BridgeViewController()`。`lockGestures` 禁网页缩放/长按放大镜；系统 Home、缘滑返回拦不掉。视觉与反馈数字只改 `src/game/design.ts` 的 `LOOK` / `HUD` / `FEEL`。下一刀阶段 D：路径长度 6/8/10 档视+震。点魔法 / 划金币仍可能卡，见 PERF。按钮式全盘清 / 排行榜不要做。
 
 ## 阶段
 
@@ -47,7 +47,7 @@ npm run cap:sync && npx cap open ios   # 打真机
 
 iOS **`com.slidematch.play` / SlideMatch**。
 
-能看到：奶油舞台、九宫框、6×6 黏土棋子、浅格、顶栏左 COINS 右 SCORE。可划可退（路径浮起+角标、其它色变暗）；≥2 抬手缩完腾格+碎屑；达门槛路径飞入队尾出道具。邻列在掉时静止子仍可划。真机：按下/过格/回退/散消点子/找对震动。设置按钮隐藏。
+能看到：奶油舞台、九宫框、6×6 黏土棋子、浅格、顶栏左 COINS 右 SCORE。可划可退（路径浮起+角标、其它色变暗）；≥2 抬手缩完腾格+碎屑；达门槛路径飞入队尾出道具。邻列在掉时静止子仍可划。真机：按下/过格/回退/散消点子/找对震动。设置左下齿轮。
 
 ## 玩法（已拍板）
 
@@ -73,7 +73,7 @@ src/game/perfLog.ts 真机 [perf] 帧时（console / sessionStorage / ?debugPerf
 src/game/items.ts   生成、散消、resolveStroke
 src/game/score.ts   n² × 倍率，SCORE/COINS 累计滚动
 src/game/clearFx.ts 消除碎屑
-src/game/settings.ts 调参覆盖 LOOK + HUD（按钮隐藏；存档 v21）
+src/game/settings.ts 调参覆盖 LOOK + HUD（存档 v26）
 src/game/path.ts    四邻过边/进格、加/减、插值
 src/game/input.ts   第一指、cancel 续划、合批
 src/game/drop.ts    占坑 0.22、飞入一起腾格、道具格锁

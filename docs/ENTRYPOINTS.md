@@ -57,7 +57,7 @@ index.html
 | 真机帧时 | `perfLog.ts` · `?debugPerf=1` · [PERF.md](./PERF.md) |
 | 路径角标 | `pathBadge.ts` · `FEEL.select.badge*`（进局 36 池，opacity 隐藏） |
 | 震动玩法 | `FEEL.haptic` · `haptics.playTransient` / `playPattern` · [HAPTICS.md](./HAPTICS.md) §0.8 |
-| 调参覆盖 | `src/game/settings.ts`；`#settings-root`（按钮隐藏） |
+| 调参覆盖 | `src/game/settings.ts`；左下齿轮 → `#settings-root` |
 | 素材 | `src/assets/` · [BOARD.md](./BOARD.md) |
 | 道具生成/结算 | `src/game/items.ts` · [ITEMS.md](./ITEMS.md) |
 | 分数 / 本局金币 | `src/game/score.ts` · [DESIGN.md](./DESIGN.md) · HUD 见 [BOARD.md](./BOARD.md) |

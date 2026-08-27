@@ -393,18 +393,25 @@ export const HUD = {
   labelLine: 23,
   scoreSize: 45,
   coinSize: 36,
-  coinIconW: 38,
-  coinIconH: 45,
+  coinIconW: 42,
+  coinIconH: 50,
   /** 标题相对默认行：负上、正下。 */
   labelY: 25,
   /** 分数数字高低。 */
   scoreY: 15,
-  /** 金币图标钉死。相对「图标 + 一位数字」居中组再微移，不是相对左边缘。 */
-  coinIconX: -8,
+  /** 相对「图标 + 一位数字」居中组再微移。 */
+  coinIconX: -14,
   coinIconY: 15,
-  /** 金币数字槽：以图标右侧剩余空间中心为原点。 */
-  coinNumX: 8,
+  /** 金币数字相对槽中心再微移。 */
+  coinNumX: -20,
   coinNumY: 15,
+  /** 数字槽宽度（px）。位数变多不拉宽，只缩小字号。 */
+  coinNumW: 55,
+  /** 金币+数字下面的胶囊底：横向三分，中间拉长。高不跟金币图标走。 */
+  coinBarSlice: 62,
+  coinBarH: 47,
+  /** 胶囊底高低，负上正下。不跟金币图标走。 */
+  coinBarY: 15,
 } as const;
 
 export const APP = {
