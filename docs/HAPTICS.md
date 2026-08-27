@@ -53,9 +53,17 @@ customClass="BridgeViewController" customModule="App"
 
 不是 `CAPBridgeViewController`，也不是别的 MainViewController。
 
-4. 这两个 `.swift` 在 Xcode **Compile Sources** 里。
-5. JS 只通过 `src/utils/haptics.ts` 调插件；`jsName` / `registerPlugin` / `isPluginAvailable` 三者都是字符串 **`AdvancedHaptics`**。
-6. 在 **真机 App** 里点 HUD 的 **impact / transient**，马达有反馈。
+4. **`SceneDelegate.swift` 必须是：**
+
+```swift
+window?.rootViewController = BridgeViewController()
+```
+
+写成 `CAPBridgeViewController()` 会绕过第 2 步，插件永远不注册。`ios:bootstrap` 会改这一行。
+
+5. 这两个 `.swift` 在 Xcode **Compile Sources** 里。
+6. JS 只通过 `src/utils/haptics.ts` 调插件；`jsName` / `registerPlugin` / `isPluginAvailable` 三者都是字符串 **`AdvancedHaptics`**。
+7. 在 **真机 App** 里点一下划子，马达有反馈。
 
 ### 0.4 真机上怎么确认（控制台）
 
@@ -122,6 +130,17 @@ void haptics.stopContinuous();
 - 控制台 `plugin: true` + `AdvancedHapticsPlugin registered`
 - 真机点 **impact** 有一下、点 **transient** 有一下
 - 杀进程再开仍然能震（说明是 `load()` 起的引擎，不是某次侥幸 prepare）
+
+## 0.8 玩法现行（复刻 SlideToWord）
+
+数字：`FEEL.haptic`。`void` 调用，不 `await`。不用 UIKit `impact`。
+
+| 事件 | 怎么震 |
+|------|--------|
+| 按下（命中起划） | 瞬态 I **0.55** S **0.86** |
+| 过格（路径变长） | 瞬态 I **0.35** S **0.50** |
+| 有效抬手（≥2） | 瞬态 0.50/0.30 → 隔 50ms → 持续 100ms 0.40/0.19，强度收到 0 |
+| 取消 / &lt;2 / `pointercancel` | **不震** |
 
 ## 1. 和完整玩法工程差在哪
 

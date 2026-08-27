@@ -63,6 +63,8 @@ export const FEEL = {
     dipDamp: 14,
     outSec: 0.15,
     dimSec: 0.08,
+    /** 松手后其它色投影淡入。 */
+    shadowInSec: 0.1,
     idleLift: 0.3,
     idleHz: 0.85,
     badgeSize: 18,
@@ -71,6 +73,20 @@ export const FEEL = {
     badgeOut: 9,
     /** 出现、队尾放大/缩小：到点即停。 */
     badgeSnapSec: 0.12,
+  },
+  /** 复刻 SlideToWord：Core Haptics 瞬态 I/S。取消 / <2 不震。 */
+  haptic: {
+    pressI: 0.55,
+    pressS: 0.86,
+    tickI: 0.35,
+    tickS: 0.5,
+    findI: 0.5,
+    findS: 0.3,
+    findGap: 0.05,
+    findContI: 0.4,
+    findContS: 0.19,
+    findContDur: 0.1,
+    findDecay: 1,
   },
   clear: {
     sec: 0.15,
@@ -369,9 +385,12 @@ export function clampPieceDpr(devicePixelRatio: number): number {
   return Math.max(1, Math.min(devicePixelRatio || 1, PIECE_DRAW.dprMax));
 }
 
-export function pieceDropShadowFilter(dpr: number): string {
+export function pieceDropShadowFilter(dpr: number, strength = 1): string {
   const d = clampPieceDpr(dpr);
-  return `drop-shadow(${PIECE_DRAW.shadowX * d}px ${PIECE_DRAW.shadowY * d}px ${PIECE_DRAW.shadowBlur * d}px ${PIECE_DRAW.shadowColor})`;
+  const a = Math.min(1, Math.max(0, strength));
+  if (a < 0.02) return 'none';
+  const col = PIECE_DRAW.shadowColor.replace(/[\d.]+\)$/, `${(0.42 * a).toFixed(3)})`);
+  return `drop-shadow(${PIECE_DRAW.shadowX * d}px ${PIECE_DRAW.shadowY * d}px ${PIECE_DRAW.shadowBlur * d}px ${col})`;
 }
 
 /** 原点在布局盒左上。旋转/centerScale 绕图片中心；落地挤压绕底边中心；最后 1/dpr。 */
@@ -387,7 +406,13 @@ export function pieceLayerTransform(
   centerScale = 1,
 ): string {
   const inv = 1 / clampPieceDpr(dpr);
-  const rot = rotateDeg ? `rotate(${rotateDeg}deg) ` : '';
-  const mid = centerScale !== 1 ? `scale(${centerScale}) ` : '';
-  return `translate3d(${x}px,${y}px,0) translate(${pieceW / 2}px,${pieceH / 2}px) ${rot}${mid}translate(${-pieceW / 2}px,${-pieceH / 2}px) translate(${pieceW / 2}px,${pieceH}px) scale(${scaleX},${scaleY}) translate(${-pieceW / 2}px,${-pieceH}px) scale(${inv})`;
+  const qx = Math.round(x * 100) / 100;
+  const qy = Math.round(y * 100) / 100;
+  const qsX = Math.round(scaleX * 1000) / 1000;
+  const qsY = Math.round(scaleY * 1000) / 1000;
+  const qRot = Math.round(rotateDeg * 100) / 100;
+  const qMid = Math.round(centerScale * 1000) / 1000;
+  const rot = qRot ? `rotate(${qRot}deg) ` : '';
+  const mid = qMid !== 1 ? `scale(${qMid}) ` : '';
+  return `translate3d(${qx}px,${qy}px,0) translate(${pieceW / 2}px,${pieceH / 2}px) ${rot}${mid}translate(${-pieceW / 2}px,${-pieceH / 2}px) translate(${pieceW / 2}px,${pieceH}px) scale(${qsX},${qsY}) translate(${-pieceW / 2}px,${-pieceH}px) scale(${inv})`;
 }

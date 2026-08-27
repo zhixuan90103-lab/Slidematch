@@ -385,16 +385,27 @@ body.native-app #shell {
   background-repeat: no-repeat;
   box-shadow: none;
   filter: drop-shadow(0 3px 1px rgba(90, 55, 80, 0.42));
-  will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   contain: layout style;
 }
 
-.board-piece.is-additive-glow {
+.board-piece.is-lifted,
+.board-piece.is-clearing {
+  will-change: transform;
+}
+
+.board-piece.is-additive-glow,
+.board-piece.is-coin-overlay,
+.board-piece.is-blank-overlay {
   filter: none;
-  mix-blend-mode: plus-lighter;
+  will-change: auto;
+  mix-blend-mode: normal;
   pointer-events: none;
+}
+
+.board-piece.is-additive-glow.is-on {
+  mix-blend-mode: plus-lighter;
 }
 
 .board-path-badge {
@@ -414,7 +425,11 @@ body.native-app #shell {
   text-align: center;
   pointer-events: none;
   box-shadow: none;
-  opacity: 0.88;
+  opacity: 0;
+  transform-origin: 0 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  contain: layout style paint;
 }
 
 .board-piece.is-coin-overlay,

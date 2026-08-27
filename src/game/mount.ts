@@ -67,7 +67,7 @@ import {
   type RecolorFx,
 } from './convertLook';
 import { magicClearDelay, scoreFlyEase, scoreFlyScale, type ScoreFly } from './scoreFly';
-import { badgeFontPx, badgeTargetPx, tickBadgeMotion, type BadgeMotion } from './pathBadge';
+import { badgeBoxPx, badgeFontPx, badgeTargetPx, tickBadgeMotion, type BadgeMotion } from './pathBadge';
 import { createPerfLog, type PerfScene } from './perfLog';
 import { commitStroke, createScoreRoll, linkPreview, setScoreTarget, strokeScore, tickScoreRoll } from './score';
 import {
@@ -232,6 +232,16 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   const pathBadgeEls = new Map<number, HTMLElement>();
   const pathBadgePool: HTMLElement[] = [];
   const badgeMo = new Map<number, BadgeMotion>();
+  type BadgePaint = {
+    order: number;
+    bg: string;
+    fg: string;
+    font: string;
+    op: string;
+    z: string;
+    tx: string;
+  };
+  const badgePaint = new Map<HTMLElement, BadgePaint>();
 
   const extraKeys = new Set<string>();
   const popT = new Map<number, number>();
@@ -240,6 +250,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   const popOutFrom = new Map<number, number>();
   const popOutT = new Map<number, number>();
   const dimK = new Map<number, number>();
+  const shadowK = new Map<number, number>();
   const extraGlow = new Map<number, number>();
   const dipY = new Map<number, number>();
   const dipV = new Map<number, number>();
@@ -253,6 +264,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     popOutFrom.delete(id);
     popOutT.delete(id);
     dimK.delete(id);
+    shadowK.delete(id);
     extraGlow.delete(id);
     dipY.delete(id);
     dipV.delete(id);
@@ -312,21 +324,27 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     return el;
   };
 
-  const acquirePathBadge = (): HTMLElement =>
-    acquireFrom(pathBadgePool, () => {
-      const el = document.createElement('div');
-      el.className = 'board-path-badge';
-      lifts.append(el);
-      return el;
-    });
+  const makePathBadge = (): HTMLElement => {
+    const el = document.createElement('div');
+    el.className = 'board-path-badge';
+    const box = badgeBoxPx();
+    el.style.width = `${box}px`;
+    el.style.height = `${box}px`;
+    lifts.append(el);
+    el.style.opacity = '0';
+    return el;
+  };
+
+  const acquirePathBadge = (): HTMLElement => acquireFrom(pathBadgePool, makePathBadge);
 
   const releasePathBadge = (el: HTMLElement, id?: number) => {
-    el.textContent = '';
-    el.style.background = '';
-    parkEl(el);
+    if (el.style.opacity !== '0') el.style.opacity = '0';
+    badgePaint.delete(el);
     pathBadgePool.push(el);
     if (id != null) badgeMo.delete(id);
   };
+
+  for (let i = 0; i < ROWS * COLS; i++) pathBadgePool.push(makePathBadge());
 
   const acquireFly = (): HTMLElement =>
     acquireFrom(flyPool, () => {
@@ -371,27 +389,32 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
   const applyLook = (
     el: HTMLElement,
     look: LookFrame,
-    box?: { w: number; h: number; filter?: boolean },
+    box?: { w?: number; h?: number; filter?: boolean },
   ) => {
     const dpr = pieceDpr();
     const w = box?.w ?? layout.pieceW * dpr;
     const h = box?.h ?? layout.pieceH * dpr;
-    el.dataset.n = String(look.n);
-    el.dataset.i = String(look.i);
-    el.style.width = `${w}px`;
-    el.style.height = `${h}px`;
-    if (box?.filter === false) {
-      /* caller CSS */
-    } else {
-      el.style.filter = pieceDropShadowFilter(dpr);
-    }
+    const frame = `${look.i}:${look.n}:${w}:${h}`;
     if (el.dataset.sheet !== look.src) {
       el.dataset.sheet = look.src;
       el.style.backgroundImage = look.src ? `url("${look.src}")` : '';
     }
-    el.dataset.frame = `${look.i}:${look.n}`;
-    el.style.backgroundSize = `${look.n * w}px ${h}px`;
-    el.style.backgroundPosition = `${-look.i * w}px 0`;
+    if (el.dataset.bw !== String(w)) {
+      el.dataset.bw = String(w);
+      el.style.width = `${w}px`;
+      el.style.height = `${h}px`;
+    }
+    if (box?.filter !== false) {
+      const filter = pieceDropShadowFilter(dpr);
+      if (el.style.filter !== filter) el.style.filter = filter;
+    }
+    if (el.dataset.frame !== frame) {
+      el.dataset.n = String(look.n);
+      el.dataset.i = String(look.i);
+      el.dataset.frame = frame;
+      el.style.backgroundSize = `${look.n * w}px ${h}px`;
+      el.style.backgroundPosition = `${-look.i * w}px 0`;
+    }
   };
 
   const setPieceBitmapSize = (el: HTMLElement) => {
@@ -493,8 +516,11 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       : null;
     const look =
       yawLook ?? recLook ?? pieceLook(shown === COIN_LOOK ? piece.color : shown);
-    applyLook(el, look);
-    el.dataset.color = String(shown);
+    const dimAmt = dimK.get(piece.id) ?? 0;
+    const magicFace =
+      shown === COIN_LOOK || (piece.state === 'clearing' && piece.clearLook === COIN_LOOK);
+    const flipping = !!rec && recU > 0 && recU < 1;
+    const hideBase = magicFace;
     const gather = piece.state === 'clearing' && piece.flySec > 0;
     const clearDur = gather ? piece.flySec : CLEAR_SEC;
     const clearU = piece.state === 'clearing' ? piece.clearT / clearDur : -1;
@@ -508,11 +534,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const k = fly ? fly.k : 0;
     const x = fromX + (toX - fromX) * k;
     const y = fromY + (toY - fromY) * k;
-    const dimAmt = dimK.get(piece.id) ?? 0;
     const opacity = fade * (1 - dimAmt * (1 - FEEL.select.otherOpacity));
-    const magicFace =
-      shown === COIN_LOOK || (piece.state === 'clearing' && piece.clearLook === COIN_LOOK);
-    el.style.opacity = magicFace ? '0' : opacity === 1 ? '' : String(opacity);
     const popK = popT.get(piece.id) ?? 0;
     const pieceRowEarly = piece.destRow ?? piece.sourceRow;
     const convertSel =
@@ -524,7 +546,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const vel = popV.get(piece.id) ?? 0;
     const settle = Math.max(0, 1 - (Math.abs(popK - 1) + Math.abs(vel) * 0.06) / 0.32);
     const bob =
-      piece.state === 'clearing' || poppingIn
+      piece.state === 'clearing' || poppingIn || flipping
         ? 0
         : FEEL.select.idleLift * settle * Math.sin(idle * FEEL.select.idleHz * Math.PI * 2 + piece.id * 0.9);
     const clearS = fly ? fly.scale : clear ? clear.scale : 1;
@@ -539,7 +561,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const popScale = popIn?.scale ?? 1;
     const recPulse = rec && recU < 1 ? convertRecolorScale(recU) : 1;
     const liftY = selLift * Math.max(0, popK) + bob + clearLift + popLift - dip;
-    el.style.transform = pieceLayerTransform(
+    const xf = pieceLayerTransform(
       x,
       y - liftY,
       piece.scaleX * popS * clearS * popScale,
@@ -550,19 +572,43 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       wobble + popRot,
       recPulse,
     );
-    el.classList.toggle('is-clearing', piece.state === 'clearing');
-    el.classList.toggle('is-convert', isConvertColor(piece.color) && !isMagicColor(shown));
-    el.classList.toggle('is-magic', isMagicColor(shown) || shown === COIN_LOOK);
-    el.classList.toggle('is-dim', dimAmt > 0.02);
-    el.classList.toggle('is-lifted', popK > 0);
+    if (!hideBase) {
+      const shadowAmt = shadowK.get(piece.id) ?? 1;
+      applyLook(el, look, flipping || shadowAmt < 0.98 ? { filter: false } : undefined);
+      if (flipping || shadowAmt < 0.02) {
+        if (el.style.filter !== 'none') el.style.filter = 'none';
+      } else if (shadowAmt < 0.98) {
+        const f = pieceDropShadowFilter(pieceDpr(), shadowAmt);
+        if (el.style.filter !== f) el.style.filter = f;
+      }
+      if (el.dataset.color !== String(shown)) el.dataset.color = String(shown);
+      const op = opacity === 1 ? '' : String(opacity);
+      if (el.style.opacity !== op) el.style.opacity = op;
+      if (el.style.transform !== xf) el.style.transform = xf;
+      el.classList.toggle('is-clearing', piece.state === 'clearing');
+      el.classList.toggle('is-convert', isConvertColor(piece.color) && !isMagicColor(shown));
+      el.classList.toggle('is-magic', isMagicColor(shown) || shown === COIN_LOOK);
+      el.classList.toggle('is-dim', dimAmt > 0.02);
+      el.classList.toggle('is-lifted', popK > 0);
+      const zBase = gather
+        ? 240 + Math.round((1 - k) * 20)
+        : piece.state === 'clearing'
+          ? 180
+          : Math.round(piece.visualY * 20 + popK * 6 + (poppingIn ? 16 : 0));
+      const zStr = String(10 + zBase);
+      if (el.style.zIndex !== zStr) el.style.zIndex = zStr;
+      const host0 = piece.visualY < -0.02 && !gather && !poppingIn ? movers : lifts;
+      if (el.parentElement !== host0) host0.append(el);
+    } else {
+      if (el.style.opacity !== '0') el.style.opacity = '0';
+      el.classList.remove('is-lifted');
+    }
     const z = gather
       ? 240 + Math.round((1 - k) * 20)
       : piece.state === 'clearing'
         ? 180
         : Math.round(piece.visualY * 20 + popK * 6 + (poppingIn ? 16 : 0));
-    el.style.zIndex = String(10 + z);
     const host = piece.visualY < -0.02 && !gather && !poppingIn ? movers : lifts;
-    if (el.parentElement !== host) host.append(el);
 
     const pieceRow = piece.destRow ?? piece.sourceRow;
     const onPath = pathKeys.has(`${pieceRow},${piece.col}`);
@@ -584,72 +630,72 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const coinDue = !rec || rec.t >= coinDelay;
     const coinFade =
       leavingBlank ? 1 - Math.min(1, Math.max(0, goldU) / flipOutU) : 1;
-    const waitingFly = scoreFlies.some((f) => f.pieceId === piece.id && f.t < f.delay);
-    const wantBlank =
-      fade > 0.08 &&
-      ((magicRec && rec && convertBlankShown(rec.from, rec.to, recU)) ||
-        magicFace);
-    let blank = blankEls.get(piece.id);
-    if (!blank) {
-      blank = acquireBlank();
-      blankEls.set(piece.id, blank);
-    }
-    applyLook(blank, rec && magicRec ? convertBlankLook(rec.from, rec.to, recU) : blankRestLook());
-    blank.style.transform = el.style.transform;
-    if (wantBlank) {
-      blank.style.opacity = opacity === 1 ? '1' : String(opacity);
-      blank.style.zIndex = String(12 + z);
-    } else {
-      blank.style.filter = 'none';
-      blank.style.opacity = '0';
-      blank.style.zIndex = '2';
-    }
-    if (blank.parentElement !== host) host.append(blank);
+    const waitingFly =
+      scoreFlies.length > 0 && scoreFlies.some((f) => f.pieceId === piece.id && f.t < f.delay);
     const wantCoin =
       (piece.state !== 'clearing' || waitingFly) &&
       ((leavingBlank && coinFade > 0.02) ||
         ((goingBlank || shown === COIN_LOOK) && coinDue) ||
         waitingFly);
-    let coin = coinEls.get(piece.id);
-    if (!coin) {
-      coin = acquireCoin();
-      coinEls.set(piece.id, coin);
-    }
-    applyLook(
-      coin,
-      rec && goldU < 1 && goldU >= 0 ? goldSpinLook(goldU, leavingBlank) : goldSpinLook(1, false),
-    );
-    const appearU = Math.min(1, Math.max(0, goldU));
-    const appear = leavingBlank
-      ? { opacity: coinFade, scale: 1, lift: 0 }
-      : coinAppearMotion(appearU);
-    const coinS = wantCoin && fade > 0.08 ? recPulse * appear.scale : 1;
-    const coinLift = wantCoin && fade > 0.08 ? appear.lift : 0;
-    coin.style.transform = pieceLayerTransform(
-      x,
-      y - liftY - coinLift,
-      piece.scaleX * popS * clearS * popScale,
-      piece.scaleY * popS * clearS * popScale,
-      layout.pieceW,
-      layout.pieceH,
-      pieceDpr(),
-      wobble + popRot,
-      coinS,
-    );
-    if (wantCoin && fade > 0.08) {
-      const coinOp = opacity * appear.opacity;
-      coin.style.opacity = coinOp === 1 ? '1' : String(coinOp);
-      coin.style.zIndex = String(13 + z);
+    const coinLive = wantCoin && fade > 0.08;
+    const wantBlank =
+      fade > 0.08 &&
+      ((magicRec && rec && convertBlankShown(rec.from, rec.to, recU)) || magicFace);
+    if (wantBlank) {
+      let blank = blankEls.get(piece.id);
+      if (!blank) {
+        blank = acquireBlank();
+        blankEls.set(piece.id, blank);
+      }
+      applyLook(blank, rec && magicRec ? convertBlankLook(rec.from, rec.to, recU) : blankRestLook());
+      if (blank.style.transform !== xf) blank.style.transform = xf;
+      const blankOp = opacity === 1 ? '1' : String(opacity);
+      if (blank.style.opacity !== blankOp) blank.style.opacity = blankOp;
+      const blankZ = String(12 + z);
+      if (blank.style.zIndex !== blankZ) blank.style.zIndex = blankZ;
+      if (blank.parentElement !== host) host.append(blank);
     } else {
-      coin.style.filter = 'none';
-      coin.style.opacity = '0';
-      coin.style.zIndex = '2';
+      const blank = blankEls.get(piece.id);
+      if (blank && blank.style.opacity !== '0') blank.style.opacity = '0';
     }
-    if (coin.parentElement !== host) host.append(coin);
+    if (coinLive) {
+      let coin = coinEls.get(piece.id);
+      if (!coin) {
+        coin = acquireCoin();
+        coinEls.set(piece.id, coin);
+      }
+      applyLook(
+        coin,
+        rec && goldU < 1 && goldU >= 0 ? goldSpinLook(goldU, leavingBlank) : goldSpinLook(1, false),
+      );
+      const appearU = Math.min(1, Math.max(0, goldU));
+      const appear = leavingBlank
+        ? { opacity: coinFade, scale: 1, lift: 0 }
+        : coinAppearMotion(appearU);
+      const coinXf = pieceLayerTransform(
+        x,
+        y - liftY - appear.lift,
+        piece.scaleX * popS * clearS * popScale,
+        piece.scaleY * popS * clearS * popScale,
+        layout.pieceW,
+        layout.pieceH,
+        pieceDpr(),
+        wobble + popRot,
+        recPulse * appear.scale,
+      );
+      if (coin.style.transform !== coinXf) coin.style.transform = coinXf;
+      const coinOp = opacity * appear.opacity === 1 ? '1' : String(opacity * appear.opacity);
+      if (coin.style.opacity !== coinOp) coin.style.opacity = coinOp;
+      const coinZ = String(13 + z);
+      if (coin.style.zIndex !== coinZ) coin.style.zIndex = coinZ;
+      if (coin.parentElement !== host) host.append(coin);
+    } else {
+      const coin = coinEls.get(piece.id);
+      if (coin && coin.style.opacity !== '0') coin.style.opacity = '0';
+    }
 
-    const wantGlow = fade > 0.08 && glowAmt > 0.02;
+    const wantGlow = fade > 0.08 && glowAmt > 0.02 && !coinLive;
     const pathGlowOp = onPath ? FEEL.select.glowOpacity : FEEL.convert.markGlow;
-    const coinOn = wantCoin && fade > 0.08;
     const paintGlow = (
       map: Map<number, HTMLElement>,
       glowLook: LookFrame,
@@ -663,8 +709,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         map.set(piece.id, glow);
       }
       applyLook(glow, glowLook);
+      glow.classList.add('is-on');
       glow.dataset.color = String(shown);
-      glow.style.filter = 'none';
       glow.style.opacity = String(op * fade * glowAmt);
       glow.style.transform = xf;
       glow.style.zIndex = String(zi);
@@ -673,6 +719,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     const dropGlow = (map: Map<number, HTMLElement>) => {
       const glow = map.get(piece.id);
       if (!glow) return;
+      glow.classList.remove('is-on');
       releaseGlow(glow);
       map.delete(piece.id);
     };
@@ -684,36 +731,30 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         13 + z,
         FEEL.convert.blankGlow,
       );
+      dropGlow(glowEls);
+    } else if (wantGlow) {
+      paintGlow(glowEls, look, el.style.transform, 11 + z, pathGlowOp);
+      dropGlow(blankGlowEls);
     } else {
       dropGlow(blankGlowEls);
-    }
-    if (wantGlow && coinOn) {
-      paintGlow(
-        glowEls,
-        rec && goldU < 1 && goldU >= 0 ? goldSpinLook(goldU, leavingBlank) : goldSpinLook(1, false),
-        coin.style.transform,
-        15 + z,
-        pathGlowOp,
-      );
-    } else if (wantGlow && !wantBlank) {
-      paintGlow(glowEls, look, el.style.transform, 11 + z, pathGlowOp);
-    } else if (!(wantGlow && coinOn)) {
       dropGlow(glowEls);
     }
     const order = pathOrder.get(`${pieceRow},${piece.col}`);
     const cap = pendingConvert ? pendingConvert.shown : 999;
     const keepCount = order != null && order <= cap;
     let badge = pathBadgeEls.get(piece.id);
+    if (!badge) {
+      badge = acquirePathBadge();
+      pathBadgeEls.set(piece.id, badge);
+    }
     const curSize = badgeMo.get(piece.id)?.x ?? 0;
-    if (onPath && order != null && fade > 0.08 && (keepCount || curSize > 1.2)) {
-      if (!badge) {
-        badge = acquirePathBadge();
-        pathBadgeEls.set(piece.id, badge);
-      }
+    const showBadge = onPath && order != null && fade > 0.08 && (keepCount || curSize > 1.2);
+    if (showBadge) {
       const bs = badgeMo.get(piece.id)?.x ?? (keepCount ? FEEL.select.badgeSize : 0);
       if (!keepCount && bs < 1.2) {
-        releasePathBadge(badge, piece.id);
-        pathBadgeEls.delete(piece.id);
+        if (badge.style.opacity !== '0') badge.style.opacity = '0';
+        const prev = badgePaint.get(badge);
+        if (prev) prev.op = '0';
       } else {
         const out = FEEL.select.badgeOut;
         const swipeColor = path?.magic
@@ -726,21 +767,27 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
                 ? shown
                 : piece.color;
         const tint = pieceBadgeStyle(swipeColor);
-        badge.textContent = String(order);
-        badge.style.width = `${bs}px`;
-        badge.style.height = `${bs}px`;
-        badge.style.fontSize = badgeFontPx(bs, order);
-        badge.style.background = tint.bg;
-        badge.style.color = tint.fg;
-        badge.style.opacity = String(0.88 * (keepCount ? 1 : Math.min(1, bs / FEEL.select.badgeSize)));
-        badge.style.transform = `translate3d(${x + layout.pieceW - bs + out}px,${y - liftY - out}px,0)`;
-        badge.style.transformOrigin = 'center center';
-        badge.style.zIndex = String(20 + z);
-        if (badge.parentElement !== host) host.append(badge);
+        const box = badgeBoxPx();
+        const k = bs / box;
+        const op = String(0.88 * (keepCount ? 1 : Math.min(1, bs / FEEL.select.badgeSize)));
+        const zStr = String(20 + z);
+        const font = badgeFontPx(order);
+        const tx = `translate3d(${x + layout.pieceW - bs + out}px,${y - liftY - out}px,0) scale(${k})`;
+        const prev = badgePaint.get(badge);
+        if (!prev || prev.order !== order) badge.textContent = String(order);
+        if (!prev || prev.bg !== tint.bg) badge.style.background = tint.bg;
+        if (!prev || prev.fg !== tint.fg) badge.style.color = tint.fg;
+        if (!prev || prev.font !== font) badge.style.fontSize = font;
+        if (!prev || prev.op !== op) badge.style.opacity = op;
+        if (!prev || prev.z !== zStr) badge.style.zIndex = zStr;
+        if (!prev || prev.tx !== tx) badge.style.transform = tx;
+        badgePaint.set(badge, { order, bg: tint.bg, fg: tint.fg, font, op, z: zStr, tx });
+        if (badge.parentElement !== lifts) lifts.append(badge);
       }
-    } else if (badge) {
-      releasePathBadge(badge, piece.id);
-      pathBadgeEls.delete(piece.id);
+    } else if (badge.style.opacity !== '0') {
+      badge.style.opacity = '0';
+      const prev = badgePaint.get(badge);
+      if (prev) prev.op = '0';
     }
     return el;
   };
@@ -854,11 +901,13 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     }
     for (const [id, el] of glowEls) {
       if (sim.pieces.has(id) && pathKeys.size) continue;
+      el.classList.remove('is-on');
       releaseGlow(el);
       glowEls.delete(id);
     }
     for (const [id, el] of blankGlowEls) {
       if (sim.pieces.has(id) && pathKeys.size) continue;
+      el.classList.remove('is-on');
       releaseGlow(el);
       blankGlowEls.delete(id);
     }
@@ -874,9 +923,37 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       blankEls.delete(id);
     }
     for (const [id, el] of pathBadgeEls) {
-      if (sim.pieces.has(id) && pathKeys.size) continue;
+      if (sim.pieces.has(id)) continue;
       releasePathBadge(el, id);
       pathBadgeEls.delete(id);
+    }
+  };
+
+  const paintDirtyPieces = () => {
+    const ids = new Set<number>();
+    for (const id of popT.keys()) ids.add(id);
+    for (const id of dipY.keys()) ids.add(id);
+    for (const id of extraGlow.keys()) ids.add(id);
+    for (const id of dimK.keys()) ids.add(id);
+    for (const id of shadowK.keys()) ids.add(id);
+    for (const id of badgeMo.keys()) ids.add(id);
+    for (const id of glowEls.keys()) ids.add(id);
+    for (const piece of sim.pieces.values()) {
+      if (piece.state === 'clearing') continue;
+      const key = `${piece.destRow ?? piece.sourceRow},${piece.col}`;
+      if (pathKeys.has(key) || extraKeys.has(key)) ids.add(piece.id);
+    }
+    for (const [id, rec] of recolorFx) {
+      if (rec.t < 0) continue;
+      const spinEnd =
+        rec.to === COIN_LOOK || rec.from === COIN_LOOK
+          ? Math.max(convertRecolorSec(rec.from, rec.to), FEEL.convert.coinDelaySec + FEEL.convert.coinSpinSec)
+          : convertRecolorSec(rec.from, rec.to);
+      if (!rec.done || rec.t < spinEnd) ids.add(id);
+    }
+    for (const id of ids) {
+      const piece = sim.pieces.get(id);
+      if (piece) syncPieceEl(piece);
     }
   };
 
@@ -895,6 +972,20 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     emptyTick: number | null;
   } | null = null;
   applyLayout();
+  for (const piece of sim.pieces.values()) {
+    const row = piece.destRow ?? piece.sourceRow;
+    if (!blankEls.has(piece.id)) {
+      const b = acquireBlank();
+      blankEls.set(piece.id, b);
+      placeIdle(b, row, piece.col);
+    }
+    if (!coinEls.has(piece.id)) {
+      const c = acquireCoin();
+      coinEls.set(piece.id, c);
+      placeIdle(c, row, piece.col);
+    }
+    if (!pathBadgeEls.has(piece.id)) pathBadgeEls.set(piece.id, acquirePathBadge());
+  }
 
   let convertCountOn = false;
   const paintConvertCount = (n: number, loc: { x: number; y: number } | null) => {
@@ -968,7 +1059,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     }
     syncRecolor(next);
     paintConvertCount(0, null);
-    paintPieces();
+    if (!next) paintPieces();
+    else paintDirtyPieces();
     ensureLoop();
   };
 
@@ -1075,7 +1167,6 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       ...settle,
       cellDelay: magicClear ? magicClearDelay(cells) : undefined,
     });
-    void haptics.impact('medium');
     snapRecolorOff(cells.concat(settle.extraCells));
     path = null;
     lastLocal = null;
@@ -1089,9 +1180,46 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     ensureLoop();
   };
 
+  const fireHaptic = (kind: 'press' | 'tick' | 'find') => {
+    const h = FEEL.haptic;
+    if (kind === 'find') {
+      const gap = h.findGap;
+      const dur = Math.max(0.04, h.findContDur);
+      const decay = Math.min(1, Math.max(0, h.findDecay));
+      const hold = dur * (1 - decay);
+      void haptics.playPattern(
+        [
+          { type: 'transient', relativeTime: 0, intensity: h.findI, sharpness: h.findS },
+          {
+            type: 'continuous',
+            relativeTime: gap,
+            duration: dur,
+            intensity: h.findContI,
+            sharpness: h.findContS,
+          },
+        ],
+        [
+          {
+            parameterID: 'hapticIntensity',
+            relativeTime: gap,
+            controlPoints: [
+              { relativeTime: 0, parameterValue: h.findContI },
+              ...(hold > 0.008 ? [{ relativeTime: hold, parameterValue: h.findContI }] : []),
+              { relativeTime: dur, parameterValue: 0 },
+            ],
+          },
+        ],
+      );
+      return;
+    }
+    if (kind === 'press') void haptics.playTransient(h.pressI, h.pressS);
+    else void haptics.playTransient(h.tickI, h.tickS);
+  };
+
   const finishStroke = () => {
     if (pendingConvert) return;
     if (path && canCommit(path) && stablePathCount(sim, path.cells) >= PATH_MIN) {
+      fireHaptic('find');
       const settle = resolveStroke(path, colors, convertPreview);
       commitStroke(scoreRoll, strokeScore(path, colors, settle));
       sim.colorCount = colorCountForScore(scoreRoll.committed);
@@ -1147,12 +1275,14 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       lastLocal = loc;
       const hit = cellFromLocal(loc.x, loc.y, layout);
       path = hit && colors[hit.row]![hit.col]! >= 0 ? beginPath(hit, colors) : null;
+      if (path) fireHaptic('press');
       paintPath(path, false);
       lastDipHover = hit ? cellKey(hit) : null;
       aimHud(scoreRoll.committed + (path ? linkPreview(path.cells.length) : 0));
       return;
     }
 
+    const beforeLen = path?.cells.length ?? 0;
     const beforeSel = new Set<string>([...pathKeys, ...extraKeys]);
 
     if (path) {
@@ -1180,6 +1310,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       finishStroke();
       return;
     }
+    const afterLen = path?.cells.length ?? 0;
+    if (afterLen > beforeLen) fireHaptic('tick');
     paintPath(path, false);
     const hover = cellFromLocal(loc.x, loc.y, layout);
     if (hover) {
@@ -1255,9 +1387,6 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         if (pathKeys.has(`${pieceRow},${piece.col}`)) want.add(piece.id);
         else if (pendingConvert && extraKeys.has(`${pieceRow},${piece.col}`)) want.add(piece.id);
       }
-    }
-    for (const [id, rec] of recolorFx) {
-      if (rec.t >= 0 && rec.t < convertRecolorSec(rec.from, rec.to)) want.add(id);
     }
     let busy = false;
     const ids = new Set(popT.keys());
@@ -1382,9 +1511,23 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       }
       if (v <= 0) dimK.delete(piece.id);
       else dimK.set(piece.id, v);
+      const shadowTarget = target === 1 ? 0 : 1;
+      let s = shadowK.get(piece.id) ?? 1;
+      if (s < shadowTarget) {
+        s = Math.min(shadowTarget, s + Math.min(dt, 1 / 30) / FEEL.select.shadowInSec);
+        busy = true;
+      } else if (s > shadowTarget) {
+        s = Math.max(shadowTarget, s - Math.min(dt, 1 / 30) / FEEL.select.dimSec);
+        busy = true;
+      }
+      if (s >= 0.995) shadowK.delete(piece.id);
+      else shadowK.set(piece.id, s);
     }
     for (const id of dimK.keys()) {
       if (!seen.has(id)) dimK.delete(id);
+    }
+    for (const id of shadowK.keys()) {
+      if (!seen.has(id)) shadowK.delete(id);
     }
     return busy;
   };
@@ -1511,17 +1654,10 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       });
       colors = stableColors(sim);
     }
-    if (
-      dropping ||
-      popping ||
-      dimming ||
-      dipping ||
-      glowing ||
-      recoloring ||
-      badgeSizing ||
-      pendingConvert
-    ) {
-      paintPieces();
+    const heavy = dropping || !!pendingConvert;
+    if (heavy || popping || dimming || dipping || glowing || badgeSizing || recoloring) {
+      if (heavy) paintPieces();
+      else paintDirtyPieces();
       keep = true;
     }
     if (tickClearFx(dt)) keep = true;

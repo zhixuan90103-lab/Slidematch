@@ -52,8 +52,11 @@ export function tickBadgeMotion(
   return { x, from, to, t, vanish };
 }
 
-export function badgeFontPx(size: number, order: number): string {
-  if (size > 26) return order > 9 ? '13px' : '16px';
-  if (size > 21) return order > 9 ? '12px' : '14px';
-  return order > 9 ? '10px' : '11px';
+/** 固定盒 = 队尾直径。视觉大小用 scale，不要改 width/height。 */
+export function badgeBoxPx(): number {
+  return FEEL.select.badgeSizeNow;
+}
+
+export function badgeFontPx(order: number): string {
+  return order > 9 ? '13px' : '16px';
 }

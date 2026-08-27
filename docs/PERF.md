@@ -6,7 +6,7 @@
 
 | | |
 |--|--|
-| 已做 | yaw 横条裁帧（不每帧换 `src`）；36 金币/白板/glow/飞分预建；魔法原色子不换白板 URL；合成飞入 alpha；`warmupLookAssets` 先解 coin/bai |
+| 已做 | yaw 横条裁帧（不每帧换 `src`）；36 金币/白板/glow/飞分预建；魔法原色子不换白板 URL；合成飞入 alpha；`warmupLookAssets` 先解 coin/bai；翻牌窗口关投影；原色子藏掉后停更新 |
 | 未过关 | **第一次** `magic_flip` p90 仍可到 ~90+（jsMax≈3，合成层首次亮起）；`magic_back` p90 仍可 50+。为避免滑动看穿 overlay，闲置必须 `opacity: 0`，层会被拆 |
 | 不做 | 整盘 canvas 合成（金币对不齐，已回滚） |
 
@@ -99,9 +99,7 @@
 
 ### C. 翻牌期间关掉 `drop-shadow`
 
-翻 200/300ms 内 `filter: none`，停稳再开。  
-前置：#1/#3 合成线程高、主线程不高。  
-改动面小，但是要写进 `FEEDBACK.md`（投影是否允许短暂消失）。
+**已做。** 翻 200/300ms 内 `filter: none`，停稳再开。写进 FEEDBACK。
 
 ### D. 降 DPR / 阴影只画进 PNG
 
