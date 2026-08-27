@@ -63,6 +63,11 @@ export const FEEL = {
     dipDamp: 14,
     outSec: 0.15,
     dimSec: 0.08,
+    /**
+     * 抬手后短窗口：窗口内再按下则续同一划，不当结算。
+     * iOS 官方没有这个窗口；120ms 够接手抖，正常确认几乎无感。
+     */
+    liftGraceSec: 0.12,
     /** 松手后其它色投影淡入。 */
     shadowInSec: 0.1,
     idleLift: 0.3,

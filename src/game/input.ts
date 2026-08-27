@@ -1,9 +1,11 @@
 /**
  * First-finger ownership + iOS pointercancel continue via touch.
  * Borrowed from SlidetoWord mount.ts — not ray geometry.
+ * 抬手后 liftGraceSec 内再按下：续同一划（手抖离屏），不当结算。鼠标立刻抬手。
  */
 
 import { unlockNoteSfx } from '../audio/noteSfx';
+import { FEEL } from './design';
 
 export type SwipeInputHandlers = {
   onSample: (clientX: number, clientY: number, kind: 'down' | 'move' | 'up') => void;
@@ -15,6 +17,10 @@ export function bindSwipeInput(target: HTMLElement, handlers: SwipeInputHandlers
   let ownerTouchId: number | null = null;
   let pointerLost = false;
   let pendingEnter = false;
+  let liftTimer: number | null = null;
+  let liftX = 0;
+  let liftY = 0;
+  let inGrace = false;
   const liveTouches = new Map<number, { x: number; y: number }>();
 
   const ignoreExtra = (ev: Event) => {
@@ -22,7 +28,16 @@ export function bindSwipeInput(target: HTMLElement, handlers: SwipeInputHandlers
     ev.stopImmediatePropagation();
   };
 
+  const clearLiftGrace = () => {
+    if (liftTimer != null) {
+      window.clearTimeout(liftTimer);
+      liftTimer = null;
+    }
+    inGrace = false;
+  };
+
   const clearOwner = () => {
+    clearLiftGrace();
     ownerPointerId = null;
     ownerTouchId = null;
     pointerLost = false;
@@ -73,6 +88,18 @@ export function bindSwipeInput(target: HTMLElement, handlers: SwipeInputHandlers
   };
 
   const onDown = (ev: PointerEvent) => {
+    if (inGrace) {
+      if (ev.button !== 0 && ev.pointerType === 'mouse') return;
+      clearLiftGrace();
+      ownerPointerId = ev.pointerId;
+      pointerLost = false;
+      pendingEnter = true;
+      ownerTouchId = nearestLiveTouch(ev.clientX, ev.clientY);
+      capturePointer(ev.pointerId);
+      handlers.onSample(ev.clientX, ev.clientY, 'move');
+      ev.preventDefault();
+      return;
+    }
     if (ownerPointerId !== null && ev.pointerId !== ownerPointerId) {
       ignoreExtra(ev);
       return;
@@ -117,8 +144,28 @@ export function bindSwipeInput(target: HTMLElement, handlers: SwipeInputHandlers
     clearOwner();
   };
 
+  const armLiftGrace = (clientX: number, clientY: number) => {
+    if (ownerPointerId !== null) releaseCaptured(ownerPointerId);
+    ownerPointerId = null;
+    pointerLost = true;
+    pendingEnter = true;
+    liftX = clientX;
+    liftY = clientY;
+    inGrace = true;
+    if (liftTimer != null) window.clearTimeout(liftTimer);
+    liftTimer = window.setTimeout(() => {
+      liftTimer = null;
+      inGrace = false;
+      finish(liftX, liftY);
+    }, Math.round(FEEL.select.liftGraceSec * 1000));
+  };
+
   const onUp = (ev: PointerEvent) => {
     if (ev.pointerId !== ownerPointerId) return;
+    if (ev.pointerType !== 'mouse' && FEEL.select.liftGraceSec > 0) {
+      armLiftGrace(ev.clientX, ev.clientY);
+      return;
+    }
     finish(ev.clientX, ev.clientY);
   };
 
@@ -127,6 +174,7 @@ export function bindSwipeInput(target: HTMLElement, handlers: SwipeInputHandlers
     pointerLost = true;
     releaseCaptured(ev.pointerId);
     if (ownerTouchId === null) {
+      if (inGrace) return;
       handlers.onTrueCancel();
       clearOwner();
     }
@@ -174,9 +222,15 @@ export function bindSwipeInput(target: HTMLElement, handlers: SwipeInputHandlers
     if (ownerTouchId === null && ownerPointerId === null) return;
     if (extra) ignoreExtra(ev);
     if (!ownerEnded) return;
+    if (inGrace) {
+      ownerTouchId = null;
+      return;
+    }
     const mine = touchById(ev.changedTouches, ownerTouchId!);
-    if (mine) finish(mine.clientX, mine.clientY);
-    else {
+    if (mine) {
+      if (FEEL.select.liftGraceSec > 0) armLiftGrace(mine.clientX, mine.clientY);
+      else finish(mine.clientX, mine.clientY);
+    } else {
       handlers.onTrueCancel();
       if (ownerPointerId !== null) releaseCaptured(ownerPointerId);
       clearOwner();
@@ -194,6 +248,7 @@ export function bindSwipeInput(target: HTMLElement, handlers: SwipeInputHandlers
   document.addEventListener('touchcancel', onTouchEnd, touchOpt);
 
   return () => {
+    clearLiftGrace();
     target.removeEventListener('pointerdown', onDown);
     target.removeEventListener('pointermove', onMove);
     target.removeEventListener('pointerup', onUp);

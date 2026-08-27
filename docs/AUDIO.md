@@ -8,7 +8,7 @@
 ## 接线
 
 ```
-pointerdown → input.unlockNoteSfx()     同手势 resume
+pointerdown → unlockNoteSfx()           同手势 resume（input.ts）
 mountBoard  → gameSfx.preload()
 fireHaptic  → press / tick / mark / coin / magicEnter
 commitClear → gameSfx.clear()

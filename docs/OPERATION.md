@@ -46,7 +46,7 @@ cy = row * sy + cellH / 2
 - `lockGestures` + CSS：禁网页双指缩放、双击放大、长按放大镜/呼出菜单（`-webkit-touch-callout: none`）、`user-select`、SCORE 电话号码检测。单指 `touchstart`/`touchmove` 在非按钮区 `preventDefault`。设置面板仍可点。
 - 系统 Home 上滑、缘滑返回、控制中心：**网页关不掉**。
 - `pointermove`：若存在 `getCoalescedEvents()` 且返回非空，**按时间顺序**对每个合批点采样；否则用当前点。合批点不是第二套规则。
-- `pointerup`：用松手点再走一遍滑动算法后结算。
+- `pointerup`：用松手点再走一遍滑动算法后结算。触屏 / 笔：先等 `liftGraceSec` **120ms**，窗口内再按下则续同一划（当 `move`，不新开路径）；超时才结算。鼠标立刻结算。iOS 官方没有这个窗口，是我们自己的手抖容错。
 - `pointercancel`：若因第二指，用 touch 通道按同一 `identifier` 续划，**不当抬手**。无 touch 备份才真取消（名单清空）。
 - 不要用 iOS `preciseLocation` 做进格（Apple：Do not use for hit testing）。
 - 不要用预测点（`getPredictedEvents`）当真走过的格。
@@ -218,7 +218,7 @@ lastLocal: 上一采样的 local 坐标
 5. **田字格直角** 左下→右下→右上：即使很快，拐角格仍在，不会被斜线吃掉。  
 6. **回退：** 沿原路滑回上一格才减；飞到起点附近整链仍在（只剩想退时才一格格退）。  
 7. **拐弯：** 四向可拐；对角不能入队；中部格子不能再入。  
-8. **抬手：** 1 格取消；≥2 消除。邻列下落时静止子仍可划。  
+8. **抬手：** 1 格取消；≥2 消除。邻列下落时静止子仍可划。触屏抬手后 **120ms** 内再按下续同一划。  
 9. **第二指：** 不结束第一划（真机）。  
 10. **盘外按下：** 不开始。
 

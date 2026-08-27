@@ -250,7 +250,7 @@ export const gameHaptics = {
 - 可调强弱、碰撞 patter：`stackImpact` / `playPattern`（Core Haptics）
 - 长摩擦：`startContinuous` + `stopContinuous`，离开关卡必须 stop
 - 调用 **fire-and-forget**（`void`），不要 `await` 堵逻辑帧
-- 与音效并列：`gameHaptics.x()` 旁一行 `audio.playSfx('x')`
+- 与音效并列：`haptics.x()` 旁一行 `gameSfx.press()` / `tick()` / `clear()` 等
 
 强度映射、pattern 表放到 `src/config/HapticsConfig.ts`（或和 Audio Catalog 同级），不要写死在物理循环里。
 

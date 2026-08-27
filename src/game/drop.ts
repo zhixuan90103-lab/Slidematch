@@ -59,6 +59,8 @@ export type Piece = {
   itemPopSec: number;
   itemPopT: number;
   itemPopAmp: number;
+  /** 变色散消倒数：路径/散子钉住，不下落，以免清光判定对不上。 */
+  pinned: boolean;
 };
 
 export type Slot = {
@@ -79,6 +81,11 @@ export type DropSim = {
   vacateAt: number | null;
   /** 顶补普通色种数（开局 3；魔法抬手后 ±1，夹在 3–5）。 */
   colorCount: number;
+  /**
+   * 这一波顶补禁止的普通色。仅当本划把盘上该锁色清光时设置；
+   * 盘面补满后清掉。-1 = 不禁。
+   */
+  spawnExcludeColor: number;
 };
 
 export type DropMetrics = {
@@ -141,6 +148,7 @@ function fillPiece(p: Piece, color: number, col: number, row: number): Piece {
   p.itemPopSec = 0;
   p.itemPopT = 0;
   p.itemPopAmp = 1;
+  p.pinned = false;
   return p;
 }
 
@@ -175,6 +183,7 @@ function makePiece(color: number, col: number, row: number): Piece {
       itemPopSec: 0,
       itemPopT: 0,
       itemPopAmp: 1,
+      pinned: false,
     },
     color,
     col,
@@ -216,6 +225,7 @@ export function createDropSim(colors: number[][]): DropSim {
     pendingItem: null,
     vacateAt: null,
     colorCount: COLOR_COUNT,
+    spawnExcludeColor: -1,
   };
 }
 
@@ -288,6 +298,7 @@ function markClearing(
   const p = sim.slots[cell.row]![cell.col]!.current;
   if (!p || p.state !== 'stable') return;
   p.state = 'clearing';
+  p.pinned = false;
   p.clearT = -delay;
   p.landActive = false;
   p.vy = 0;
@@ -317,7 +328,46 @@ export type ClearOpts = {
   extraCells?: Cell[];
   spawnColor?: number | null;
   cellDelay?: (cell: Cell) => number;
+  lockColor?: number;
+  fromMagic?: boolean;
 };
+
+/** 变色散消倒数期间钉住路径/散子，禁止下落。 */
+export function pinCells(sim: DropSim, cells: Cell[]): void {
+  for (const cell of cells) {
+    if (!inBounds(cell)) continue;
+    const p = sim.slots[cell.row]![cell.col]!.current;
+    if (p && p.state === 'stable') p.pinned = true;
+  }
+}
+
+/**
+ * 这一波顶补禁色。真源：docs/DROP.md「顶补禁色」。
+ * 魔法：永不禁，色种仍是 colorCount（≥3）。
+ * 非魔法：锁定色的静止子被本划（路径+散子）清光 → 禁该色直到盘面补满。
+ */
+function applySpawnBan(sim: DropSim, fromMagic: boolean, lockColor: number, clearing: Set<string>): void {
+  if (fromMagic) {
+    sim.spawnExcludeColor = -1;
+    return;
+  }
+  if (lockColor < 0 || lockColor >= sim.colorCount) return;
+  if (lockColorStillStable(sim, lockColor, clearing)) return;
+  sim.spawnExcludeColor = lockColor;
+  retintSpawning(sim, lockColor);
+}
+
+/** 抬手当下定禁色（变色倒数开始前），别等缩完才禁，否则空列会先按旧池顶补。 */
+export function armSpawnBan(
+  sim: DropSim,
+  fromMagic: boolean,
+  lockColor: number,
+  cells: Cell[],
+): void {
+  const clearing = new Set<string>();
+  for (const cell of cells) clearing.add(`${cell.row},${cell.col}`);
+  applySpawnBan(sim, fromMagic, lockColor, clearing);
+}
 
 export function beginClear(sim: DropSim, cells: Cell[], opts: ClearOpts = {}): void {
   const seen = new Set<string>();
@@ -358,6 +408,7 @@ export function beginClear(sim: DropSim, cells: Cell[], opts: ClearOpts = {}): v
   } else {
     sim.vacateAt = null;
   }
+  applySpawnBan(sim, !!opts.fromMagic, opts.lockColor ?? -1, seen);
 }
 
 function speedAmp(speed: number, min: number, max: number): number {
@@ -397,11 +448,38 @@ function isItemPopping(piece: Piece): boolean {
   return piece.itemPopSec > 0 && piece.itemPopT < piece.itemPopSec;
 }
 
+function pickSpawnColor(sim: DropSim): number {
+  const n = Math.max(1, sim.colorCount);
+  const ban = sim.spawnExcludeColor;
+  if (ban < 0 || ban >= n || n <= 1) return Math.floor(Math.random() * n);
+  let k = Math.floor(Math.random() * (n - 1));
+  if (k >= ban) k += 1;
+  return k;
+}
+
+/** 盘上是否还剩该锁定色的静止子（不含本划将消的格、不含天上顶补）。 */
+function lockColorStillStable(sim: DropSim, color: number, clearing: Set<string>): boolean {
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      if (clearing.has(`${row},${col}`)) continue;
+      const p = sim.slots[row]![col]!.current;
+      if (p && p.state === 'stable' && p.color === color) return true;
+    }
+  }
+  return false;
+}
+
+function retintSpawning(sim: DropSim, banned: number): void {
+  for (const piece of sim.pieces.values()) {
+    if (piece.state !== 'spawning' || piece.color !== banned) continue;
+    piece.color = pickSpawnColor(sim);
+  }
+}
+
 function trySpawn(sim: DropSim): void {
   for (let col = 0; col < COLS; col++) {
     if (!canReceiveDrop(sim, 0, col)) continue;
-    const n = Math.max(1, sim.colorCount);
-    const piece = acquirePiece(Math.floor(Math.random() * n), col, -1);
+    const piece = acquirePiece(pickSpawnColor(sim), col, -1);
     piece.state = 'spawning';
     piece.vy = dropVSpawn(sim);
     sim.pieces.set(piece.id, piece);
@@ -415,6 +493,7 @@ function scanStarts(sim: DropSim): void {
       const p = sim.slots[row]![col]!.current;
       if (!p) continue;
       if (p.state !== 'stable') continue;
+      if (p.pinned) continue;
       if (isItemPopping(p)) continue;
       beginDrop(sim, p, row);
     }
@@ -624,4 +703,5 @@ export function tickDrop(sim: DropSim, dt: number, metrics: DropMetrics): void {
   sim.time += step;
   scanStarts(sim);
   integrate(sim, step, metrics);
+  if (sim.spawnExcludeColor >= 0 && !needsTick(sim)) sim.spawnExcludeColor = -1;
 }

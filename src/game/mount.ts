@@ -43,6 +43,8 @@ import {
 } from './config';
 import {
   beginClear,
+  pinCells,
+  armSpawnBan,
   CLEAR_SEC,
   stablePathCount,
   createDropSim,
@@ -1077,6 +1079,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     holding: boolean;
     holdAcc: number;
     holdAfter: boolean;
+    lockColor: number;
   } | null = null;
   applyLayout();
   for (const piece of sim.pieces.values()) {
@@ -1330,7 +1333,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     return scoreFlies.length > 0 || punching;
   };
 
-  const commitClear = (cells: Cell[], settle: StrokeResolve) => {
+  const commitClear = (cells: Cell[], settle: StrokeResolve, lockColor = -1) => {
     const magicClear = board.classList.contains('is-magic-look');
     stampClearLook(cells.concat(settle.extraCells));
     if (magicClear) spawnScoreFlies(cells);
@@ -1338,6 +1341,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
     beginClear(sim, cells, {
       ...settle,
       cellDelay: magicClear ? magicClearDelay(cells) : undefined,
+      lockColor,
+      fromMagic: magicClear,
     });
     snapRecolorOff(cells.concat(settle.extraCells));
     path = null;
@@ -1423,6 +1428,8 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
       if (!path.magic || gained < 1) setScoreTarget(coinRoll, coins);
       paintHud();
       if (path.magic) sim.colorCount = stepColorCount(sim.colorCount);
+      const clearCells = path.cells.concat(settle.extraCells);
+      armSpawnBan(sim, path.magic, path.color, clearCells);
       if (settle.extraCells.length) {
         pendingConvert = {
           countdown: startBadgeCount(path.cells),
@@ -1432,14 +1439,16 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
           holding: false,
           holdAcc: 0,
           holdAfter: true,
+          lockColor: path.color,
         };
+        pinCells(sim, clearCells);
         extraKeys.clear();
         lastDipHover = null;
         paintPieces();
         paintHud();
         ensureLoop();
       } else {
-        commitClear(path.cells, settle);
+        commitClear(path.cells, settle, path.color);
       }
     } else {
       path = null;
@@ -1765,7 +1774,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
         pendingConvert.queue.length = 0;
         if (!pendingConvert.holdAfter) {
           const job = pendingConvert;
-          commitClear(job.countdown.cells, job.settle);
+          commitClear(job.countdown.cells, job.settle, job.lockColor);
         } else {
           pendingConvert.holding = true;
           pendingConvert.holdAcc = 0;
