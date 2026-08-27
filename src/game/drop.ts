@@ -1,5 +1,17 @@
-import { inBounds, type Cell } from './board';
-import { COLOR_COUNT, COLS, FEEL, LOOK, ROWS, isMagicColor, synthGatherTimes, synthPopAmp } from './config';
+import { inBounds, maxComponentSize, type Cell } from './board';
+import {
+  COLOR_COUNT,
+  COLS,
+  FEEL,
+  LOOK,
+  PATH_MIN,
+  ROWS,
+  RULES,
+  isMagicColor,
+  spawnAffinityP,
+  synthGatherTimes,
+  synthPopAmp,
+} from './config';
 
 /** 设计默认；运行时用设置里的 dropV0 / dropAccel / dropVMax。 */
 export const DROP_V0 = LOOK.dropV0;
@@ -86,6 +98,8 @@ export type DropSim = {
    * 盘面补满后清掉。-1 = 不禁。
    */
   spawnExcludeColor: number;
+  /** 本局 SCORE 累计（入账）。顶补亲和用这个，不用 HUD 滚动值。 */
+  scoreCommitted: number;
 };
 
 export type DropMetrics = {
@@ -226,6 +240,7 @@ export function createDropSim(colors: number[][]): DropSim {
     vacateAt: null,
     colorCount: COLOR_COUNT,
     spawnExcludeColor: -1,
+    scoreCommitted: 0,
   };
 }
 
@@ -448,13 +463,85 @@ function isItemPopping(piece: Piece): boolean {
   return piece.itemPopSec > 0 && piece.itemPopT < piece.itemPopSec;
 }
 
-function pickSpawnColor(sim: DropSim): number {
+function isPoolColor(sim: DropSim, color: number): boolean {
+  return color >= 0 && color < sim.colorCount;
+}
+
+/** 该列最上（visualY 最小）的普通色；道具跳过。 */
+function topmostPoolColor(sim: DropSim, col: number): number | null {
+  let bestY = Infinity;
+  let color: number | null = null;
+  for (const p of sim.pieces.values()) {
+    if (p.col !== col || p.state === 'clearing') continue;
+    if (!isPoolColor(sim, p.color)) continue;
+    if (p.visualY < bestY) {
+      bestY = p.visualY;
+      color = p.color;
+    }
+  }
+  return color;
+}
+
+function uniformSpawnColor(sim: DropSim): number {
   const n = Math.max(1, sim.colorCount);
   const ban = sim.spawnExcludeColor;
   if (ban < 0 || ban >= n || n <= 1) return Math.floor(Math.random() * n);
   let k = Math.floor(Math.random() * (n - 1));
   if (k >= ban) k += 1;
   return k;
+}
+
+function neighborSpawnColor(sim: DropSim, col: number): number | null {
+  const below = topmostPoolColor(sim, col);
+  const left = col > 0 ? topmostPoolColor(sim, col - 1) : null;
+  if (below == null && left == null) return null;
+  if (below == null) return left;
+  if (left == null) return below;
+  if (below === left) return below;
+  return Math.random() < RULES.spawnAffBelowWeight ? below : left;
+}
+
+function pickSpawnColor(sim: DropSim, col: number): number {
+  const ban = sim.spawnExcludeColor;
+  const p = spawnAffinityP(sim.scoreCommitted);
+  if (p > 0) {
+    const neighbor = neighborSpawnColor(sim, col);
+    if (neighbor != null && neighbor !== ban && Math.random() < p) return neighbor;
+  }
+  return uniformSpawnColor(sim);
+}
+
+/** 补满后若没有四向同色 ≥ pathMin，最少改两格。死局优先于禁色。 */
+function ensureSwipeable(sim: DropSim): void {
+  const colors: number[][] = Array.from({ length: ROWS }, (_, row) =>
+    Array.from({ length: COLS }, (_, col) => {
+      const p = sim.slots[row]![col]!.current;
+      return p ? p.color : -1;
+    }),
+  );
+  if (maxComponentSize(colors) >= PATH_MIN) return;
+  const n = Math.max(1, sim.colorCount);
+  const ban = sim.spawnExcludeColor;
+  const fallback = ban === 0 && n > 1 ? 1 : 0;
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      const a = sim.slots[row]![col]!.current;
+      if (!a) continue;
+      const neighbors: Cell[] = [
+        { row, col: col + 1 },
+        { row: row + 1, col },
+      ];
+      for (const nb of neighbors) {
+        if (!inBounds(nb)) continue;
+        const b = sim.slots[nb.row]![nb.col]!.current;
+        if (!b) continue;
+        let c = isPoolColor(sim, a.color) ? a.color : isPoolColor(sim, b.color) ? b.color : fallback;
+        a.color = c;
+        b.color = c;
+        return;
+      }
+    }
+  }
 }
 
 /** 盘上是否还剩该锁定色的静止子（不含本划将消的格、不含天上顶补）。 */
@@ -472,14 +559,14 @@ function lockColorStillStable(sim: DropSim, color: number, clearing: Set<string>
 function retintSpawning(sim: DropSim, banned: number): void {
   for (const piece of sim.pieces.values()) {
     if (piece.state !== 'spawning' || piece.color !== banned) continue;
-    piece.color = pickSpawnColor(sim);
+    piece.color = pickSpawnColor(sim, piece.col);
   }
 }
 
 function trySpawn(sim: DropSim): void {
   for (let col = 0; col < COLS; col++) {
     if (!canReceiveDrop(sim, 0, col)) continue;
-    const piece = acquirePiece(pickSpawnColor(sim), col, -1);
+    const piece = acquirePiece(pickSpawnColor(sim, col), col, -1);
     piece.state = 'spawning';
     piece.vy = dropVSpawn(sim);
     sim.pieces.set(piece.id, piece);
@@ -703,5 +790,8 @@ export function tickDrop(sim: DropSim, dt: number, metrics: DropMetrics): void {
   sim.time += step;
   scanStarts(sim);
   integrate(sim, step, metrics);
-  if (sim.spawnExcludeColor >= 0 && !needsTick(sim)) sim.spawnExcludeColor = -1;
+  if (!needsTick(sim)) {
+    ensureSwipeable(sim);
+    sim.spawnExcludeColor = -1;
+  }
 }

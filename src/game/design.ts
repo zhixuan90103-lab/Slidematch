@@ -373,7 +373,27 @@ export const RULES = {
   scoreRollMaxSec: 0.9,
   /** 每差 1 分额外加的滚动时间（秒）。 */
   scoreRollPerPoint: 0.0012,
+  /**
+   * 顶补邻格亲和。低分平台 p=spawnAffP0，分数 ∈ (lo, hi) 线性降到 0，≥hi 均匀随机。
+   * 语义见 docs/DROP.md。用本局 SCORE 累计（入账），不跟色种绑。
+   */
+  spawnAffP0: 0.62,
+  spawnAffScoreLo: 40,
+  spawnAffScoreHi: 220,
+  /** 下邻与左邻都有且不同色时，抄下邻的概率。 */
+  spawnAffBelowWeight: 0.65,
 } as const;
+
+/** 顶补抄邻居的概率。低分平台 → 宽过渡 → 高分 0。 */
+export function spawnAffinityP(score: number): number {
+  const p0 = RULES.spawnAffP0;
+  const lo = RULES.spawnAffScoreLo;
+  const hi = RULES.spawnAffScoreHi;
+  if (hi <= lo) return score <= lo ? p0 : 0;
+  if (score <= lo) return p0;
+  if (score >= hi) return 0;
+  return p0 * (1 - (score - lo) / (hi - lo));
+}
 
 /** 用完魔法后只 ±1。3 为下限（再降保持 3），5 为上限（再加保持 5）。 */
 export function stepColorCount(current: number, rand: () => number = Math.random): number {

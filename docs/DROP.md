@@ -50,9 +50,23 @@
 
 道具占格，下落上与普通子相同（`current` / `incoming`）。生成与结算见 [ITEMS.md](./ITEMS.md)。
 
+## 顶补亲和
+
+天上新补普通色带邻格亲和，让前期更好成团、后期逐渐回到均匀。数字：`RULES.spawnAff*`，`spawnAffinityP(score)`。实现：`drop.ts` `pickSpawnColor`。
+
+| 项 | 规则 |
+|----|------|
+| 时钟 | 本局 **SCORE 累计**（入账，`sim.scoreCommitted`）。不跟色种、划数绑。 |
+| `p` | 分数 ≤ `spawnAffScoreLo`(40)：`p = spawnAffP0`(0.62)。(40, 220) 线性降到 0。≥ `spawnAffScoreHi`(220)：`p = 0`（均匀）。 |
+| 抄谁 | 以 `p` 决定是否抄邻居。下邻 = 同列最上普通色；左邻 = 左列最上普通色。两色不同则 `spawnAffBelowWeight`(0.65) 抄下邻。道具色不抄。 |
+| 后期 | 只把 `p` 收到 0，**不反亲和**。 |
+| 开局静盘 | 仍 `createFilledBoard`，不走亲和。 |
+
+邻居若是本波禁色则不抄，改均匀。
+
 ## 顶补禁色
 
-数字与开关在 `drop.ts`：`spawnExcludeColor`、`applySpawnBan`、`pinCells`。默认顶补在 `colorCount` 里均匀随机（开局 / 下限 **3**）。
+数字与开关在 `drop.ts`：`spawnExcludeColor`、`applySpawnBan`、`pinCells`。未命中亲和时，顶补在 `colorCount` 里均匀随机（开局 / 下限 **3**）。
 
 | 本划 | 这一波天上新补 |
 |------|----------------|
@@ -63,6 +77,8 @@
 **何时定禁色：** 有效抬手当下（`armSpawnBan`），不要等棋子缩完。变色散消有 1 秒倒数，空列会立刻顶补；若等缩完再禁，这一波已经按旧池「列好」了。
 
 变色散消倒数期间：路径格和散子 **钉住不下落**（`pinned`）。盘面补满（`needsTick` 结束）后禁色取消。
+
+**死局优先于禁色：** 补满全静止后若四向最大连通 **&lt; pathMin**，最少改相邻两格为同色（可破一次禁色）。禁止整盘重随。
 
 禁止：魔法套这条禁色；把盘内下落原色改掉；短划 / 还剩同色时拧色池。
 

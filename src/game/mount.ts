@@ -1335,6 +1335,7 @@ export function mountBoard(uiRoot: HTMLElement): { dispose: () => void } {
 
   const commitClear = (cells: Cell[], settle: StrokeResolve, lockColor = -1, payout = 0) => {
     if (payout > 0) commitStroke(scoreRoll, payout);
+    sim.scoreCommitted = scoreRoll.committed;
     const magicClear = board.classList.contains('is-magic-look');
     stampClearLook(cells.concat(settle.extraCells));
     if (magicClear) spawnScoreFlies(cells);

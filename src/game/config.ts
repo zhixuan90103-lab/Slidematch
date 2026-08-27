@@ -82,6 +82,7 @@ export {
   PIECE_FX_COLOR,
   pieceBadgeStyle,
   RULES,
+  spawnAffinityP,
   stepColorCount,
   STAGE,
   clampPieceDpr,
